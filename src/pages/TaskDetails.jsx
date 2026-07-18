@@ -17,7 +17,8 @@ import {
   Bookmark,     
   CheckSquare,  
   MessageSquare, 
-  Zap           
+  Zap,
+  AlertTriangle 
 } from 'lucide-react'; 
 
 const STATUS_STYLES = {
@@ -88,6 +89,10 @@ export default function TaskDetailsPage() {
 
   const [toastMessage, setToastMessage] = useState(null);
   const [toastType, setToastType] = useState('error');
+  
+  // 🟢 State to control the floating confirmation modal window
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [metadata, setMetadata] = useState({
     statuses: ['TO_DO', 'IN_PROGRESS', 'DONE'],
@@ -145,14 +150,12 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // 🔴 CENTRALIZED LOGOUT LOGIC
   const handleLogout = () => {
     localStorage.removeItem('jira_token');
     localStorage.removeItem('jira_user');
     navigate('/login', { replace: true });
   };
 
-  // 🔴 UPDATED AUTH HEADERS: Automatically triggers logout if token is missing
   const getAuthHeaders = () => {
     const token = localStorage.getItem('jira_token');
     if (!token) {
@@ -231,7 +234,6 @@ export default function TaskDetailsPage() {
         body: JSON.stringify({ [fieldName]: newValue })
       });
 
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return false;
@@ -273,31 +275,41 @@ export default function TaskDetailsPage() {
     }, 50);
   };
   
-  const handleDeleteTask = async () => {
-    if (!window.confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
+  // 🟢 Completely rewritten logic using the built-in modal trigger state instead of window.confirm
+  const executeDeleteTask = async () => {
+  setIsDeleting(true);
+  try {
+    const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
 
-    try {
-      const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
-      if (response.status === 401) {
-        handleLogout();
-        return;
-      }
-
-      if (response.ok) {
-        navigate('/dashboard'); 
-      } else {
-        showToast("Failed to delete the task resource from backend.", "error");
-      }
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      showToast("Failed to complete task delete execution.", "error");
+    if (response.status === 401) {
+      handleLogout();
+      return;
     }
-  };
+
+    if (response.ok) {
+      showToast("Task deleted successfully!", "success");
+      setShowDeleteModal(false);
+      
+      // 🟢 GET THE PROJECT ID (fallback to 1 if it's not present on your task object)
+      const targetProjectId = task?.projectId || task?.project?.id || 1;
+
+      setTimeout(() => {
+        // Redirect directly into the correct workspace parameter slot
+        window.location.href = `/dashboard/${targetProjectId}`;
+      }, 800);
+    } else {
+      showToast("Failed to delete the task resource from backend.", "error");
+    }
+  } catch (error) {
+    console.error("Error deleting task:", error);
+    showToast("Failed to complete task delete execution.", "error");
+  } finally {
+    setIsDeleting(false);
+  }
+};
 
   const handleLinkTaskSubmit = async (e) => {
     e.preventDefault();
@@ -314,7 +326,6 @@ export default function TaskDetailsPage() {
         })
       });
 
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -357,7 +368,6 @@ export default function TaskDetailsPage() {
         body: JSON.stringify(payload)
       });
 
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -398,7 +408,6 @@ export default function TaskDetailsPage() {
         })
       });
 
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -436,13 +445,10 @@ export default function TaskDetailsPage() {
       {/* Interactive Breadcrumb Bar */}
       <div className="px-8 py-4 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-2 text-slate-500 font-medium text-xs flex-wrap">
-          
           <button onClick={() => navigate('/projects')} className="hover:text-blue-600 hover:underline transition-colors cursor-pointer">
             Projects
           </button>
-          
           <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
-          
           <button onClick={() => navigate(-1)} className="hover:text-blue-600 hover:underline transition-colors cursor-pointer">
             Core Engine
           </button>
@@ -475,7 +481,6 @@ export default function TaskDetailsPage() {
 
       <div className="flex max-w-7xl mx-auto px-8 py-6 gap-8">
         <div className="flex-1 min-w-0 space-y-6">
-          
           {/* Summary Title Block */}
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Summary / Title</label>
@@ -500,7 +505,7 @@ export default function TaskDetailsPage() {
             </div>
           </div>
 
-          {/* DYNAMIC MARKDOWN DESCRIPTION FIELD */}
+          {/* Description */}
           <div>
             <h3 className="text-slate-900 font-semibold mb-2">Description</h3>
             {isEditingDescription ? (
@@ -539,8 +544,8 @@ export default function TaskDetailsPage() {
               >
                 {task.description ? (
                   <Markdown 
-				  remarkPlugins={[remarkBreaks]}
-				  components={markdownComponents}>
+				            remarkPlugins={[remarkBreaks]}
+				            components={markdownComponents}>
                     {task.description}
                   </Markdown>
                 ) : (
@@ -550,7 +555,7 @@ export default function TaskDetailsPage() {
             )}
           </div>
 
-          {/* CHILD SUB-ISSUES / HIERARCHY TREE LISTING BLOCK */}
+          {/* Linked Tasks */}
           <div className="border-t border-slate-200 pt-5">
             <h3 className="text-slate-900 font-semibold mb-3 flex items-center gap-2">
               <span>Linked Tasks</span>
@@ -589,12 +594,12 @@ export default function TaskDetailsPage() {
               </div>
             ) : (
               <div className="text-slate-400 text-xs italic py-2 pl-1">
-                No active sub-issues or structural child cards linked to this task blueprint.
+                No active sub-issues linked.
               </div>
             )}
           </div>
 
-          {/* Comment Section Feed */}
+          {/* Activity/Comments */}
           <div className="border-t border-slate-200 pt-6 space-y-4">
             <div className="flex items-center gap-2 text-slate-900 font-semibold mb-2">
               <MessageSquare size={16} className="text-slate-600" />
@@ -634,7 +639,6 @@ export default function TaskDetailsPage() {
                         <span className="text-slate-400 font-normal">
                           {comment.timestamp ? new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                         </span>
-
                         {comment.updated && (
                           <span className="text-slate-400 bg-slate-200/60 px-1 py-0.2 rounded text-[9px] font-medium tracking-wide">
                             (Edited)
@@ -787,7 +791,7 @@ export default function TaskDetailsPage() {
 
           <hr className="border-slate-100" />
 
-          {/* LIVE ISSUE LINKING / HIERARCHICAL ENGINE WIDGET */}
+          {/* Link Issues */}
           <div className="pt-1">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-left">
               Link Issues / Hierarchy
@@ -852,10 +856,10 @@ export default function TaskDetailsPage() {
             </div>
           </div>
 
-          {/* Delete Task Button */}
+          {/* Delete Task Trigger Button */}
           <div className="pt-4 mt-4 border-t border-slate-100">
             <button 
-              onClick={handleDeleteTask} 
+              onClick={() => setShowDeleteModal(true)} 
               className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded border border-red-100 transition-colors cursor-pointer"
             >
               <Trash2 size={14} />
@@ -865,6 +869,44 @@ export default function TaskDetailsPage() {
 		  
         </div>
       </div>
+
+      {/* 🟢 FLOATING MODAL CONFIRMATION WINDOW */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md p-6 text-left transform scale-100 transition-all space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-red-50 rounded-full text-red-600 flex-shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-slate-900">Delete Issue TASK-{taskId}?</h3>
+                <p className="text-xs text-slate-500 leading-normal">
+                  Are you absolutely sure you want to drop this issue blueprint from the project tracking catalog? This action is permanent and cannot be undone.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button 
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                disabled={isDeleting}
+                onClick={executeDeleteTask}
+                className="px-3.5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 transition-colors rounded-lg flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODERN FLOATING TOAST POP-UP WINDOW */}
       {toastMessage && (

@@ -46,7 +46,7 @@ const TYPE_STYLES = {
   BUG: 'bg-red-600 text-white border-transparent',
   TASK: 'bg-blue-500 text-white border-transparent',
   EPIC: 'bg-purple-600 text-white border-transparent',
-  DEFAULT: 'bg-slate-500 text-white border-transparent'
+  DEFAULT: 'bg-slate-50 text-slate-500 text-white border-transparent'
 };
 
 const TABLE_TYPE_ICONS = {
@@ -68,6 +68,7 @@ export default function JiraDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('jira_token');
     localStorage.removeItem('jira_user');
+    localStorage.removeItem('jira_user_avatar');
     navigate('/login', { replace: true });
   };
 
@@ -137,7 +138,6 @@ export default function JiraDashboard() {
 
       const response = await fetch(apiUrl, { headers: getAuthHeaders() });
       
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -169,7 +169,6 @@ export default function JiraDashboard() {
         headers: getAuthHeaders() 
       });
       
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         console.error("Unauthorized! Token is expired, forcing logout.");
         handleLogout();
@@ -199,7 +198,6 @@ export default function JiraDashboard() {
         headers: getAuthHeaders()
       });
 
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -237,32 +235,39 @@ export default function JiraDashboard() {
         const configRes = await fetch('http://localhost:8080/api/tasks/config', {
           headers: getAuthHeaders()
         });
-
-        // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
         if (configRes.status === 401) {
           handleLogout();
           return;
         }
-
         if (configRes.ok) {
           const configData = await configRes.json();
           setMetadata(configData);
         }
-        for (const widget of activeWidgets) {
-          await fetchWidgetData(widget, 0, false);
-        }
       } catch (e) {
-        console.error(e);
+        console.error("Failed to load workspace configuration metadata:", e);
+      }
+
+      try {
+        await Promise.all(
+          activeWidgets.map(widget => fetchWidgetData(widget, 0, false))
+        );
+      } catch (e) {
+        console.error("Error populating workspace monitor lanes:", e);
       } finally {
         setLoading(false);
       }
     }
-    initDashboard(); 
-  }, []);
+
+    if (projectId) {
+      initDashboard();
+    }
+  }, [projectId]);
 
   useEffect(() => {
-    fetchAllTasksTableData();
-  }, [allTasksPage, allTasksSize]);
+    if (projectId) {
+      fetchAllTasksTableData();
+    }
+  }, [allTasksPage, allTasksSize, projectId]);
 
   // --- SORTING ENGINE METHODS ---
   const handleSort = (key) => {
@@ -299,7 +304,6 @@ export default function JiraDashboard() {
       ? <ArrowUp size={12} className="text-blue-600 font-bold ml-1 inline-block" /> 
       : <ArrowDown size={12} className="text-blue-600 font-bold ml-1 inline-block" />;
   };
-  // ------------------------------
 
   const handleAddCustomWidget = async (type, value) => {
     const cleanTitle = `${value.replace('_', ' ')} ${type.charAt(0) + type.slice(1).toLowerCase()}`;
@@ -343,7 +347,6 @@ export default function JiraDashboard() {
         body: JSON.stringify(payload) 
       });
       
-      // 🔴 AUTO-REDIRECT ON 401 UNAUTHORIZED
       if (response.status === 401) {
         handleLogout();
         return;
@@ -365,20 +368,93 @@ export default function JiraDashboard() {
     }
   };
 
+  // Helper values for dynamic avatar display logic
+  const storedUserRaw = localStorage.getItem('jira_user');
+  
+  // 🟢 Parse User Object Details Safely
+  const parsedUserData = useMemo(() => {
+    if (!storedUserRaw) return null;
+    try {
+      if (storedUserRaw.trim().startsWith('{')) {
+        return JSON.parse(storedUserRaw);
+      }
+    } catch (e) {
+      console.error("User payload formatting parse error", e);
+    }
+    return null;
+  }, [storedUserRaw]);
+
+  const displayUserName = useMemo(() => {
+    if (parsedUserData) {
+      return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
+    }
+    return storedUserRaw || 'User';
+  }, [parsedUserData, storedUserRaw]);
+
+  // 🟢 FIXED: Cross-check both direct 'jira_user_avatar' key AND the backend API's 'pictureUrl' property context
+  const avatarUrl = useMemo(() => {
+    let rawUrl = localStorage.getItem('jira_user_avatar');
+    
+    // If explicit avatar key isn't there, pull it out from the active parsed user object mapping block
+    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
+      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
+    }
+
+    if (!rawUrl) return null;
+    
+    // De-serialize quotes if any exist
+    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
+      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
+    }
+    return rawUrl;
+  }, [parsedUserData]);
+
+  useEffect(() => {
+    console.log("Workspace Profile Diagnostics:", {
+      rawUser: storedUserRaw,
+      resolvedName: displayUserName,
+      avatarUrl: avatarUrl
+    });
+  }, [storedUserRaw, displayUserName, avatarUrl]);
+
   return (
     <div className="flex h-screen w-screen bg-slate-50 font-sans text-slate-800 text-left overflow-hidden">
       {/* Sidebar Navigation */}
       <div className="w-64 bg-white border-r border-slate-200 flex flex-col p-4 shadow-sm">
         
+        {/* Safe Dynamic Profile Header with strictly validated conditional rendering */}
         <div 
           onClick={() => navigate('/projects')} 
-          className="flex items-center gap-2 px-2 py-3 mb-4 border border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm rounded cursor-pointer transition-all group"
+          className="flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-xs rounded-xl cursor-pointer transition-all group"
           title="Switch Workspace"
         >
-          <div className="bg-blue-600 text-white p-1.5 rounded font-bold text-sm">Jira</div>
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-700 text-sm leading-tight">Switch Workspace</span>
-            <span className="text-[10px] font-medium text-slate-400 group-hover:text-blue-500 transition-colors">View all projects &rarr;</span>
+          <div className="relative h-9 w-9 flex-shrink-0">
+            {avatarUrl && avatarUrl !== 'null' && avatarUrl !== 'undefined' && avatarUrl.trim() !== '' ? (
+              <img 
+                src={avatarUrl} 
+                alt="User Profile" 
+                className="h-full w-full rounded-full object-cover border border-slate-200 shadow-xs"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUserName)}&background=2563eb&color=fff`;
+                }}
+              />
+            ) : (
+              <div className="h-full w-full rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-inner uppercase">
+                {displayUserName && displayUserName.trim() !== '' ? displayUserName.trim().charAt(0) : 'U'}
+              </div>
+            )}
+            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+          </div>
+
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="font-bold text-slate-700 text-xs leading-tight truncate capitalize">
+              {displayUserName}
+            </span>
+            <span className="text-[10px] font-medium text-slate-400 group-hover:text-blue-500 transition-colors truncate">
+              Switch Workspace &rarr;
+            </span>
           </div>
         </div>
         
@@ -417,7 +493,6 @@ export default function JiraDashboard() {
               {activeWidgets.map(widget => (
                 <div key={widget.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-h-[450px] max-h-[600px] flex flex-col gap-3 group relative">
                   
-                  {/* Widget Header WITH CLOSE ACTION INTEGRATION */}
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <div className="flex items-center gap-2">
                       {widget.type === 'STATUS' && <Sliders size={14} className="text-blue-500" />}
@@ -435,7 +510,6 @@ export default function JiraDashboard() {
                     </button>
                   </div>
 
-                  {/* Card List Area */}
                   <div className="space-y-2 overflow-y-auto flex-1 pr-1">
                     {widget.items && widget.items.length > 0 ? (
                       widget.items.map(taskItem => (
@@ -511,7 +585,6 @@ export default function JiraDashboard() {
               </button>
             </div>
             
-            {/* Table Pagination Controller */}
             <div className="flex items-center gap-2">
               <button 
                 disabled={allTasksPage === 0} 
