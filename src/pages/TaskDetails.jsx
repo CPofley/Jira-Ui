@@ -67,6 +67,7 @@ export default function TaskDetailsPage() {
   const taskId = params.get('taskId');
 
   const titleRef = useRef(null); 
+  const userDropdownRef = useRef(null); // Ref for outside clicks tracking
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,9 +91,11 @@ export default function TaskDetailsPage() {
   const [toastMessage, setToastMessage] = useState(null);
   const [toastType, setToastType] = useState('error');
   
-  // 🟢 State to control the floating confirmation modal window
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // 🟢 State to control profile details display menu trigger block
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const [metadata, setMetadata] = useState({
     statuses: ['TO_DO', 'IN_PROGRESS', 'DONE'],
@@ -153,6 +156,7 @@ export default function TaskDetailsPage() {
   const handleLogout = () => {
     localStorage.removeItem('jira_token');
     localStorage.removeItem('jira_user');
+    localStorage.removeItem('jira_user_avatar');
     navigate('/login', { replace: true });
   };
 
@@ -219,6 +223,17 @@ export default function TaskDetailsPage() {
       });
   }, [taskId]);
 
+  // Close dropdown menu automatically if user clicks elsewhere outside components bounds
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleInputChange = (fieldName, value) => {
     setEditingValues(prev => ({ ...prev, [fieldName]: value }));
   };
@@ -275,41 +290,36 @@ export default function TaskDetailsPage() {
     }, 50);
   };
   
-  // 🟢 Completely rewritten logic using the built-in modal trigger state instead of window.confirm
   const executeDeleteTask = async () => {
-  setIsDeleting(true);
-  try {
-    const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
 
-    if (response.status === 401) {
-      handleLogout();
-      return;
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        showToast("Task deleted successfully!", "success");
+        setShowDeleteModal(false);
+        const targetProjectId = task?.projectId || task?.project?.id || 1;
+        setTimeout(() => {
+          window.location.href = `/dashboard/${targetProjectId}`;
+        }, 800);
+      } else {
+        showToast("Failed to delete the task resource from backend.", "error");
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      showToast("Failed to complete task delete execution.", "error");
+    } finally {
+      setIsDeleting(false);
     }
-
-    if (response.ok) {
-      showToast("Task deleted successfully!", "success");
-      setShowDeleteModal(false);
-      
-      // 🟢 GET THE PROJECT ID (fallback to 1 if it's not present on your task object)
-      const targetProjectId = task?.projectId || task?.project?.id || 1;
-
-      setTimeout(() => {
-        // Redirect directly into the correct workspace parameter slot
-        window.location.href = `/dashboard/${targetProjectId}`;
-      }, 800);
-    } else {
-      showToast("Failed to delete the task resource from backend.", "error");
-    }
-  } catch (error) {
-    console.error("Error deleting task:", error);
-    showToast("Failed to complete task delete execution.", "error");
-  } finally {
-    setIsDeleting(false);
-  }
-};
+  };
 
   const handleLinkTaskSubmit = async (e) => {
     e.preventDefault();
@@ -435,6 +445,33 @@ export default function TaskDetailsPage() {
     showToast("Comment discarded locally.", "success");
   };
 
+  // SHARED USER METADATA PARSING ENGINE
+  const storedUserRaw = localStorage.getItem('jira_user');
+  const parsedUserData = useMemo(() => {
+    if (!storedUserRaw) return null;
+    try {
+      if (storedUserRaw.trim().startsWith('{')) return JSON.parse(storedUserRaw);
+    } catch (e) { console.error(e); }
+    return null;
+  }, [storedUserRaw]);
+
+  const displayUserName = useMemo(() => {
+    if (parsedUserData) return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
+    return storedUserRaw || 'User';
+  }, [parsedUserData, storedUserRaw]);
+
+  const avatarUrl = useMemo(() => {
+    let rawUrl = localStorage.getItem('jira_user_avatar');
+    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
+      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
+    }
+    if (!rawUrl) return null;
+    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
+      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
+    }
+    return rawUrl;
+  }, [parsedUserData]);
+
   if (loading) return <div className="p-8 text-slate-500 text-left">Loading task context...</div>;
   if (!task) return <div className="p-8 text-red-500 text-left">Task details unavailable.</div>;
 
@@ -442,13 +479,16 @@ export default function TaskDetailsPage() {
 
   return (
     <div className="min-h-screen w-screen bg-white font-sans text-sm text-slate-800 text-left mb-12 relative">
-      {/* Interactive Breadcrumb Bar */}
-      <div className="px-8 py-4 border-b border-slate-200 flex items-center justify-between">
+      
+      {/* Interactive Breadcrumb Bar with Right-Aligned Avatar Layout Header */}
+      <div className="px-8 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2 text-slate-500 font-medium text-xs flex-wrap">
           <button onClick={() => navigate('/projects')} className="hover:text-blue-600 hover:underline transition-colors cursor-pointer">
             Projects
           </button>
+          
           <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
+          
           <button onClick={() => navigate(-1)} className="hover:text-blue-600 hover:underline transition-colors cursor-pointer">
             Core Engine
           </button>
@@ -477,10 +517,75 @@ export default function TaskDetailsPage() {
             {task.taskType || 'TASK'}
           </span>
         </div>
+
+        {/* 🟢 FIXED: Interactive Profile Avatar Header with Hover-Zoom and Clickable Detail Card */}
+        <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4 h-7 relative" ref={userDropdownRef}>
+          <span className="font-semibold text-slate-700 text-xs truncate max-w-[120px] capitalize">
+            {displayUserName}
+          </span>
+          
+          <button 
+            type="button"
+            onClick={() => setShowUserDropdown(!showUserDropdown)}
+            className="relative h-7 w-7 flex-shrink-0 focus:outline-none group/avatar cursor-pointer"
+          >
+            {avatarUrl && avatarUrl !== 'null' && avatarUrl !== 'undefined' && avatarUrl.trim() !== '' ? (
+              <img 
+                src={avatarUrl} 
+                alt="User Avatar" 
+                className="h-full w-full rounded-full object-cover border border-slate-200 shadow-xs transition-all duration-200 ease-in-out group-hover/avatar:scale-130 group-hover/avatar:shadow-md z-10 relative"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayUserName)}&background=2563eb&color=fff`;
+                }}
+              />
+            ) : (
+              <div className="h-full w-full rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px] shadow-inner uppercase transition-all duration-200 ease-in-out group-hover/avatar:scale-130 group-hover/avatar:shadow-md z-10 relative">
+                {displayUserName && displayUserName.trim() !== '' ? displayUserName.trim().charAt(0) : 'U'}
+              </div>
+            )}
+            <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-white z-20 transition-all group-hover/avatar:translate-x-0.5 group-hover/avatar:translate-y-0.5" />
+          </button>
+
+          {/* 🔘 SLIDE-DOWN ACTIVE USER DETAILS PROFILE CARD */}
+          {showUserDropdown && (
+            <div className="absolute right-0 top-9 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="h-14 w-14 rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-50">
+                  {avatarUrl && avatarUrl !== 'null' && avatarUrl !== 'undefined' && avatarUrl.trim() !== '' ? (
+                    <img src={avatarUrl} alt={displayUserName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="h-full w-full bg-blue-600 text-white font-bold text-lg flex items-center justify-center uppercase">
+                      {displayUserName.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-0.5 w-full">
+                  <h4 className="text-sm font-bold text-slate-800 capitalize truncate">
+                    {displayUserName}
+                  </h4>
+                  <p className="text-[11px] font-medium text-slate-500 truncate">
+                    {parsedUserData?.email || 'No email attached'}
+                  </p>
+                </div>
+
+                <div className="w-full border-t border-slate-100 pt-2.5 mt-1">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-bold border border-green-200 uppercase tracking-wider">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    Authorized Session
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex max-w-7xl mx-auto px-8 py-6 gap-8">
         <div className="flex-1 min-w-0 space-y-6">
+          
           {/* Summary Title Block */}
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Summary / Title</label>
@@ -599,7 +704,7 @@ export default function TaskDetailsPage() {
             )}
           </div>
 
-          {/* Activity/Comments */}
+          {/* Activity / Comments */}
           <div className="border-t border-slate-200 pt-6 space-y-4">
             <div className="flex items-center gap-2 text-slate-900 font-semibold mb-2">
               <MessageSquare size={16} className="text-slate-600" />
@@ -856,7 +961,7 @@ export default function TaskDetailsPage() {
             </div>
           </div>
 
-          {/* Delete Task Trigger Button */}
+          {/* Delete Task Button */}
           <div className="pt-4 mt-4 border-t border-slate-100">
             <button 
               onClick={() => setShowDeleteModal(true)} 
@@ -870,7 +975,7 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* 🟢 FLOATING MODAL CONFIRMATION WINDOW */}
+      {/* FLOATING MODAL CONFIRMATION WINDOW */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md p-6 text-left transform scale-100 transition-all space-y-4">
