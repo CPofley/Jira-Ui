@@ -29,17 +29,20 @@ const DEFAULT_WIDGETS = [
 ];
 
 const STATUS_STYLES = {
-  TO_DO: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200',
-  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
-  DONE: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
+  TO_DO: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 font-semibold',
+  IN_PROGRESS: 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 font-semibold',
+  IN_REVIEW: 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 font-semibold',
+  TESTING: 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100 font-semibold',
+  DONE: 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-semibold',
+  BLOCKED: 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 font-semibold',
   DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
 };
 
 const PRIORITY_STYLES = {
-  LOW: 'bg-blue-50 text-blue-700 border-blue-200 font-semibold hover:bg-blue-100',
-  MEDIUM: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold hover:bg-slate-200',
-  HIGH: 'bg-orange-50 text-orange-700 border-orange-200 font-bold hover:bg-orange-100',
-  CRITICAL: 'bg-red-50 text-red-700 border-red-200 font-extrabold animate-pulse hover:bg-red-100',
+  LOW: 'bg-sky-50 text-sky-700 border-sky-300 font-semibold hover:bg-sky-100',
+  MEDIUM: 'bg-blue-50 text-blue-700 border-blue-300 font-semibold hover:bg-blue-100',
+  HIGH: 'bg-orange-50 text-orange-700 border-orange-300 font-bold hover:bg-orange-100',
+  CRITICAL: 'bg-red-100 text-red-800 border-red-300 font-extrabold animate-pulse hover:bg-red-200',
   DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
 };
 
