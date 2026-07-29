@@ -9,7 +9,6 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 import { 
   ChevronRight, 
-  ArrowLeft, 
   Check, 
   X, 
   Trash2, 
@@ -372,7 +371,7 @@ export default function TaskDetailsPage() {
     
     setMenuPosition({
       top: rect.bottom + 4,
-      left: Math.min(rect.left, window.innerWidth - 170)
+      left: Math.min(rect.left, window.innerWidth - 160)
     });
     
     setActiveInlineMenu(activeInlineMenu?.subTaskId === subTaskId && activeInlineMenu?.fieldType === fieldType 
@@ -879,73 +878,76 @@ export default function TaskDetailsPage() {
               </form>
             )}
 
-            {/* SUB-ISSUES LIST WITH TEXT SELECTION CHECK & ROBUST PRIORITY LOOKUP */}
+            {/* 🟢 SUB-ISSUES LIST WITH STRICT FIXED-COLUMN GRID ALIGNMENT */}
             {task.subIssues && task.subIssues.length > 0 ? (
               <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden bg-white shadow-xs">
                 {task.subIssues.map((child) => (
                   <div 
                     key={child.id}
                     onClick={(e) => {
-                      // 🟢 Check if user selected any text before triggering navigation
                       const selection = window.getSelection();
                       if (selection && selection.toString().length > 0) {
                         return; // Don't navigate if text is selected
                       }
                       navigate(`/tasks/details?taskId=${child.id}`);
                     }}
-                    className="flex items-center justify-between p-3 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs group/item"
+                    className="flex items-center justify-between p-3 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs group/item gap-4"
                   >
-                    {/* Left side: ID, Type Badge, and Title */}
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4">
-                      <span className="font-mono font-bold text-blue-600 group-hover/item:underline flex-shrink-0">
+                    {/* Left side: Task ID, Type Badge, and Truncated Title */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span className="font-mono font-bold text-blue-600 group-hover/item:underline flex-shrink-0 w-16">
                         TASK-{child.id}
                       </span>
-                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex-shrink-0 ${COMPACT_TYPE_STYLES[child.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border flex-shrink-0 ${COMPACT_TYPE_STYLES[child.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}>
                         {child.taskType || 'SUB_TASK'}
                       </span>
-                      {/* select-text ensures cursor drag highlighting works smoothly */}
-                      <span className="text-slate-800 font-medium truncate select-text" title={child.title}>
+                      <span className="text-slate-800 font-medium truncate select-text flex-1" title={child.title}>
                         {child.title}
                       </span>
                     </div>
                     
-                    {/* Right side: Custom Dashboard-style Interactive Button Triggers */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Priority Button Trigger */}
-                      {syncingSubTaskId === child.id ? (
-                        <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
-                      ) : (() => {
-                        // 🟢 Robust key lookup: handles null, undefined, "High", "high", or "HIGH"
-                        const rawPriority = child.priority || child.taskPriority;
-                        const prioKey = rawPriority ? String(rawPriority).toUpperCase() : 'MEDIUM';
-                        const prioConfig = PRIORITY_CONFIG[prioKey] || PRIORITY_CONFIG.MEDIUM || PRIORITY_CONFIG.DEFAULT;
+                    {/* Right side: Fixed-width Action Buttons Grid */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {/* Priority Column (Fixed Width: 110px / w-28) */}
+                      <div className="w-28 flex justify-end">
+                        {syncingSubTaskId === child.id ? (
+                          <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                        ) : (() => {
+                          const rawPriority = child.priority || child.taskPriority;
+                          const prioKey = rawPriority ? String(rawPriority).toUpperCase() : 'MEDIUM';
+                          const prioConfig = PRIORITY_CONFIG[prioKey] || PRIORITY_CONFIG.MEDIUM || PRIORITY_CONFIG.DEFAULT;
 
-                        return (
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => triggerInlineMenuContainer(e, child.id, 'priority')}
+                              className={`w-full inline-flex items-center justify-between px-2 py-1 rounded border text-[10px] uppercase shadow-2xs cursor-pointer transition-all ${prioConfig.style}`}
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {prioConfig.icon}
+                                <span className="truncate">{prioConfig.label}</span>
+                              </div>
+                              <ChevronDown size={10} className="opacity-60 flex-shrink-0 ml-1" />
+                            </button>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Status Column (Fixed Width: 120px / w-30) */}
+                      <div className="w-30 flex justify-end">
+                        {syncingSubTaskId === child.id ? (
+                          <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                        ) : (
                           <button
                             type="button"
-                            onClick={(e) => triggerInlineMenuContainer(e, child.id, 'priority')}
-                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] uppercase shadow-2xs cursor-pointer ${prioConfig.style}`}
+                            onClick={(e) => triggerInlineMenuContainer(e, child.id, 'status')}
+                            className={`w-full inline-flex items-center justify-between px-2 py-1 rounded border text-[9px] font-bold tracking-wide uppercase shadow-2xs cursor-pointer transition-all ${STATUS_STYLES[child.taskStatus?.toUpperCase()] || STATUS_STYLES.DEFAULT}`}
                           >
-                            {prioConfig.icon}
-                            <span>{prioConfig.label}</span>
-                            <ChevronDown size={10} className="opacity-60 ml-0.5" />
+                            <span className="truncate">{(child.taskStatus || 'TO_DO').replace('_', ' ')}</span>
+                            <ChevronDown size={10} className="opacity-60 flex-shrink-0 ml-1" />
                           </button>
-                        );
-                      })()}
-
-                      {/* Status Button Trigger */}
-                      {syncingSubTaskId === child.id ? (
-                        <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => triggerInlineMenuContainer(e, child.id, 'status')}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wide uppercase shadow-2xs cursor-pointer ${STATUS_STYLES[child.taskStatus?.toUpperCase()] || STATUS_STYLES.DEFAULT}`}
-                        >
-                          <span>{(child.taskStatus || 'TO_DO').replace('_', ' ')}</span>
-                          <ChevronDown size={10} className="opacity-60" />
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1253,7 +1255,7 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* 🟢 FLOATING VIEWPORT-BOUNDED DROPDOWN POPOVER MENU (SAME AS DASHBOARD) */}
+      {/* 🟢 FLOATING VIEWPORT-BOUNDED DROPDOWN POPOVER MENU */}
       {activeInlineMenu && (
         <div 
           ref={inlineMenuRef}
