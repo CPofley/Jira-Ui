@@ -18,8 +18,48 @@ import {
   CheckSquare,  
   MessageSquare, 
   Zap,
-  AlertTriangle 
-} from 'lucide-react'; 
+  AlertTriangle,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUp,
+  Equal,
+  AlertCircle
+} from 'lucide-react';
+
+// 🟢 Jira Priority Visual Mapping (Chevron Edges only)
+const PRIORITY_CONFIG = {
+  LOW: {
+    label: 'Low',
+    style: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 font-semibold',
+    icon: <ChevronDown size={14} className="text-blue-600 font-bold stroke-[3]" />
+  },
+  MEDIUM: {
+    label: 'Medium',
+    style: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 font-semibold',
+    icon: <Equal size={13} className="text-amber-600 font-bold stroke-[3]" />
+  },
+  HIGH: {
+    label: 'High',
+    style: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 font-bold',
+    icon: <ChevronUp size={14} className="text-orange-600 font-extrabold stroke-[3]" />
+  },
+  HIGHEST: {
+    label: 'Highest',
+    style: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 font-bold',
+    icon: <ChevronsUp size={15} className="text-red-600 font-extrabold stroke-[3]" />
+  },
+  CRITICAL: {
+    label: 'Critical',
+    style: 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200 font-extrabold animate-pulse',
+    icon: <AlertCircle size={13} className="text-red-600 fill-red-100 font-extrabold" />
+  },
+  DEFAULT: {
+    label: 'Medium',
+    style: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 font-semibold',
+    icon: <Equal size={13} className="text-amber-600 font-bold stroke-[3]" />
+  }
+};
 
 const STATUS_STYLES = {
   TO_DO: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200',
@@ -28,19 +68,12 @@ const STATUS_STYLES = {
   DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
 };
 
-const PRIORITY_STYLES = {
-  LOW: 'bg-blue-50 text-blue-700 border-blue-200 font-semibold hover:bg-blue-100',
-  MEDIUM: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold hover:bg-slate-200',
-  HIGH: 'bg-orange-50 text-orange-700 border-orange-200 font-bold hover:bg-orange-100',
-  CRITICAL: 'bg-red-50 text-red-700 border-red-200 font-extrabold animate-pulse hover:bg-red-100',
-  DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
-};
-
 const TYPE_STYLES = {
   STORY: 'bg-green-600 text-white border-transparent',
   BUG: 'bg-red-600 text-white border-transparent',
   TASK: 'bg-blue-500 text-white border-transparent',
   EPIC: 'bg-purple-600 text-white border-transparent',
+  SUB_TASK: 'bg-teal-600 text-white border-transparent',
   DEFAULT: 'bg-slate-500 text-white border-transparent'
 };
 
@@ -49,6 +82,7 @@ const COMPACT_TYPE_STYLES = {
   BUG: 'bg-red-50 text-red-700 border-red-200',
   TASK: 'bg-blue-50 text-blue-700 border-blue-200',
   EPIC: 'bg-purple-50 text-purple-700 border-purple-200',
+  SUB_TASK: 'bg-teal-50 text-teal-700 border-teal-200',
   DEFAULT: 'bg-slate-50 text-slate-700 border-slate-200'
 };
 
@@ -57,6 +91,7 @@ const TYPE_ICONS = {
   BUG: <Bug size={12} className="text-white mr-1.5" />,
   TASK: <CheckSquare size={12} className="text-white mr-1.5" />,
   EPIC: <Zap size={12} className="fill-current text-white mr-1.5" />,
+  SUB_TASK: <CheckSquare size={12} className="text-white mr-1.5" />,
   DEFAULT: <CheckSquare size={12} className="text-white mr-1.5" />
 };
 
@@ -67,7 +102,8 @@ export default function TaskDetailsPage() {
   const taskId = params.get('taskId');
 
   const titleRef = useRef(null); 
-  const userDropdownRef = useRef(null); // Ref for outside clicks tracking
+  const userDropdownRef = useRef(null); 
+  const inlineMenuRef = useRef(null);
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,19 +124,28 @@ export default function TaskDetailsPage() {
   const [linkingTaskId, setLinkingTaskId] = useState('');
   const [isLinking, setIsLinking] = useState(false);
 
+  // Sub-task creation states
+  const [showSubTaskInput, setShowSubTaskInput] = useState(false);
+  const [subTaskTitle, setSubTaskTitle] = useState('');
+  const [creatingSubTask, setCreatingSubTask] = useState(false);
+
+  // Dynamic Interactive Dropdown States
+  const [activeInlineMenu, setActiveInlineMenu] = useState(null); // { subTaskId, fieldType }
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [syncingSubTaskId, setSyncingSubTaskId] = useState(null);
+
   const [toastMessage, setToastMessage] = useState(null);
   const [toastType, setToastType] = useState('error');
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // 🟢 State to control profile details display menu trigger block
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const [metadata, setMetadata] = useState({
     statuses: ['TO_DO', 'IN_PROGRESS', 'DONE'],
-    priorities: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
-    taskTypes: ['STORY', 'BUG', 'TASK', 'EPIC']
+    priorities: ['LOW', 'MEDIUM', 'HIGH', 'HIGHEST', 'CRITICAL'],
+    taskTypes: ['STORY', 'BUG', 'TASK', 'EPIC', 'SUB_TASK']
   });
 
   const mdeOptions = useMemo(() => {
@@ -187,6 +232,48 @@ export default function TaskDetailsPage() {
     }
   };
 
+  // Shared User Metadata Engine
+  const storedUserRaw = localStorage.getItem('jira_user');
+  const parsedUserData = useMemo(() => {
+    if (!storedUserRaw) return null;
+    try {
+      if (storedUserRaw.trim().startsWith('{')) return JSON.parse(storedUserRaw);
+    } catch (e) { console.error(e); }
+    return null;
+  }, [storedUserRaw]);
+
+  const displayUserName = useMemo(() => {
+    if (parsedUserData) return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
+    return storedUserRaw || 'User';
+  }, [parsedUserData, storedUserRaw]);
+
+  const avatarUrl = useMemo(() => {
+    let rawUrl = localStorage.getItem('jira_user_avatar');
+    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
+      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
+    }
+    if (!rawUrl) return null;
+    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
+      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
+    }
+    return rawUrl;
+  }, [parsedUserData]);
+
+  const formatCommentDate = (dateVal) => {
+    if (!dateVal) return 'Just now';
+    const date = new Date(dateVal);
+    if (isNaN(date.getTime())) return 'Just now';
+
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   useEffect(() => {
     if (!taskId) return;
 
@@ -223,11 +310,13 @@ export default function TaskDetailsPage() {
       });
   }, [taskId]);
 
-  // Close dropdown menu automatically if user clicks elsewhere outside components bounds
   useEffect(() => {
     function handleClickOutside(event) {
       if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
         setShowUserDropdown(false);
+      }
+      if (inlineMenuRef.current && !inlineMenuRef.current.contains(event.target)) {
+        setActiveInlineMenu(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -273,6 +362,62 @@ export default function TaskDetailsPage() {
       return false;
     } finally {
       setSavingField(null);
+    }
+  };
+
+  // 🟢 CALCULATE EXACT VIEWPORT COORDINATES FOR DROPDOWN POPOVER
+  const triggerInlineMenuContainer = (e, subTaskId, fieldType) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    
+    setMenuPosition({
+      top: rect.bottom + 4,
+      left: Math.min(rect.left, window.innerWidth - 170)
+    });
+    
+    setActiveInlineMenu(activeInlineMenu?.subTaskId === subTaskId && activeInlineMenu?.fieldType === fieldType 
+      ? null 
+      : { subTaskId, fieldType }
+    );
+  };
+
+  const executeInlineSubTaskMutation = async (subTaskId, fieldName, targetValue) => {
+    setSyncingSubTaskId(subTaskId);
+    setActiveInlineMenu(null);
+
+    const payloadKey = fieldName === 'status' ? 'taskStatus' : fieldName;
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/tasks/update/${subTaskId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ [payloadKey]: targetValue })
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        const updatedSubTask = await response.json();
+        
+        // 🟢 Update local state immediately with fresh server payload
+        setTask(prev => ({
+          ...prev,
+          subIssues: (prev.subIssues || []).map(sub => 
+            sub.id === subTaskId ? { ...sub, ...updatedSubTask, [payloadKey]: targetValue } : sub
+          )
+        }));
+        showToast(`Sub-task ${fieldName} updated to ${targetValue}!`, "success");
+      } else {
+        showToast("Failed to update sub-task on server.", "error");
+      }
+    } catch (error) {
+      console.error("Error updating sub-task:", error);
+      showToast("Network exception updating sub-task.", "error");
+    } finally {
+      setSyncingSubTaskId(null);
     }
   };
 
@@ -359,6 +504,54 @@ export default function TaskDetailsPage() {
     }
   };
 
+  // ➕ CREATE SUB-TASK SUBMISSION HANDLER
+  const handleCreateSubTask = async (e) => {
+    e.preventDefault();
+    if (!subTaskTitle.trim() || creatingSubTask) return;
+
+    setCreatingSubTask(true);
+
+    const payload = {
+      currentTaskId: parseInt(taskId),
+      title: subTaskTitle.trim(),
+      taskType: "SUB_TASK"
+    };
+
+    try {
+      const response = await fetch('http://localhost:8080/api/tasks/create/sub-task', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        const createdSubTaskDto = await response.json();
+        
+        // Append new sub-task into existing subIssues list
+        setTask(prev => ({
+          ...prev,
+          subIssues: [...(prev.subIssues || []), createdSubTaskDto]
+        }));
+
+        setSubTaskTitle('');
+        setShowSubTaskInput(false);
+        showToast("Sub-task created successfully!", "success");
+      } else {
+        showToast("Failed to create sub-task.", "error");
+      }
+    } catch (error) {
+      console.error("Error creating sub-task:", error);
+      showToast("Network exception failed to create sub-task.", "error");
+    } finally {
+      setCreatingSubTask(false);
+    }
+  };
+
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || savingComment) return;
@@ -368,7 +561,7 @@ export default function TaskDetailsPage() {
     const payload = {
       taskId: parseInt(taskId),          
       comment: newComment.trim(),        
-      author: task.createdBy && task.createdBy.trim() !== "" ? task.createdBy : "User"
+      author: displayUserName
     };
 
     try {
@@ -445,33 +638,6 @@ export default function TaskDetailsPage() {
     showToast("Comment discarded locally.", "success");
   };
 
-  // SHARED USER METADATA PARSING ENGINE
-  const storedUserRaw = localStorage.getItem('jira_user');
-  const parsedUserData = useMemo(() => {
-    if (!storedUserRaw) return null;
-    try {
-      if (storedUserRaw.trim().startsWith('{')) return JSON.parse(storedUserRaw);
-    } catch (e) { console.error(e); }
-    return null;
-  }, [storedUserRaw]);
-
-  const displayUserName = useMemo(() => {
-    if (parsedUserData) return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
-    return storedUserRaw || 'User';
-  }, [parsedUserData, storedUserRaw]);
-
-  const avatarUrl = useMemo(() => {
-    let rawUrl = localStorage.getItem('jira_user_avatar');
-    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
-      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
-    }
-    if (!rawUrl) return null;
-    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
-      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
-    }
-    return rawUrl;
-  }, [parsedUserData]);
-
   if (loading) return <div className="p-8 text-slate-500 text-left">Loading task context...</div>;
   if (!task) return <div className="p-8 text-red-500 text-left">Task details unavailable.</div>;
 
@@ -518,7 +684,7 @@ export default function TaskDetailsPage() {
           </span>
         </div>
 
-        {/* 🟢 FIXED: Interactive Profile Avatar Header with Hover-Zoom and Clickable Detail Card */}
+        {/* Profile Avatar Header */}
         <div className="flex items-center gap-2.5 border-l border-slate-200 pl-4 h-7 relative" ref={userDropdownRef}>
           <span className="font-semibold text-slate-700 text-xs truncate max-w-[120px] capitalize">
             {displayUserName}
@@ -548,7 +714,6 @@ export default function TaskDetailsPage() {
             <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-white z-20 transition-all group-hover/avatar:translate-x-0.5 group-hover/avatar:translate-y-0.5" />
           </button>
 
-          {/* 🔘 SLIDE-DOWN ACTIVE USER DETAILS PROFILE CARD */}
           {showUserDropdown && (
             <div className="absolute right-0 top-9 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="flex flex-col items-center text-center space-y-3">
@@ -649,8 +814,8 @@ export default function TaskDetailsPage() {
               >
                 {task.description ? (
                   <Markdown 
-				            remarkPlugins={[remarkBreaks]}
-				            components={markdownComponents}>
+                    remarkPlugins={[remarkBreaks]}
+                    components={markdownComponents}>
                     {task.description}
                   </Markdown>
                 ) : (
@@ -660,39 +825,127 @@ export default function TaskDetailsPage() {
             )}
           </div>
 
-          {/* Linked Tasks */}
+          {/* 🟢 LINKED TASKS & SUB-TASK QUICK-CREATE SECTION */}
           <div className="border-t border-slate-200 pt-5">
-            <h3 className="text-slate-900 font-semibold mb-3 flex items-center gap-2">
-              <span>Linked Tasks</span>
-              <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
-                {task.subIssues ? task.subIssues.length : 0}
-              </span>
-            </h3>
-            
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-slate-900 font-semibold flex items-center gap-2">
+                <span>Child Issues / Sub-Tasks</span>
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                  {task.subIssues ? task.subIssues.length : 0}
+                </span>
+              </h3>
+
+              {/* PLUS BUTTON TO TRIGGER CREATION INPUT */}
+              <button
+                type="button"
+                onClick={() => setShowSubTaskInput(prev => !prev)}
+                className="p-1.5 rounded bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold px-2.5 border border-slate-200"
+                title="Create Sub-Task"
+              >
+                <Plus size={14} />
+                <span>Create Sub-Task</span>
+              </button>
+            </div>
+
+            {/* QUICK-CREATE SUB-TASK INPUT FORM */}
+            {showSubTaskInput && (
+              <form onSubmit={handleCreateSubTask} className="mb-3 flex items-center gap-2 animate-in fade-in duration-150 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                <input
+                  type="text"
+                  placeholder="What needs to be done? Enter sub-task title..."
+                  value={subTaskTitle}
+                  onChange={(e) => setSubTaskTitle(e.target.value)}
+                  autoFocus
+                  className="flex-1 border border-blue-400 focus:ring-2 focus:ring-blue-500/20 rounded px-3 py-1.5 text-xs text-slate-800 outline-none bg-white shadow-inner"
+                />
+                <button
+                  type="submit"
+                  disabled={!subTaskTitle.trim() || creatingSubTask}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-medium rounded text-xs transition-colors cursor-pointer flex items-center gap-1 flex-shrink-0"
+                >
+                  <Check size={14} />
+                  <span>{creatingSubTask ? 'Creating...' : 'Save'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSubTaskInput(false);
+                    setSubTaskTitle('');
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded transition-colors cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </form>
+            )}
+
+            {/* SUB-ISSUES LIST WITH TEXT SELECTION CHECK & ROBUST PRIORITY LOOKUP */}
             {task.subIssues && task.subIssues.length > 0 ? (
               <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden bg-white shadow-xs">
                 {task.subIssues.map((child) => (
                   <div 
                     key={child.id}
-                    onClick={() => navigate(`/tasks/details?taskId=${child.id}`)}
+                    onClick={(e) => {
+                      // 🟢 Check if user selected any text before triggering navigation
+                      const selection = window.getSelection();
+                      if (selection && selection.toString().length > 0) {
+                        return; // Don't navigate if text is selected
+                      }
+                      navigate(`/tasks/details?taskId=${child.id}`);
+                    }}
                     className="flex items-center justify-between p-3 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs group/item"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    {/* Left side: ID, Type Badge, and Title */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4">
                       <span className="font-mono font-bold text-blue-600 group-hover/item:underline flex-shrink-0">
                         TASK-{child.id}
                       </span>
                       <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex-shrink-0 ${COMPACT_TYPE_STYLES[child.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}>
-                        {child.taskType}
+                        {child.taskType || 'SUB_TASK'}
                       </span>
-                      <span className="text-slate-800 font-medium truncate" title={child.title}>
+                      {/* select-text ensures cursor drag highlighting works smoothly */}
+                      <span className="text-slate-800 font-medium truncate select-text" title={child.title}>
                         {child.title}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                      <span className={`px-2 py-0.5 rounded border text-[9px] font-bold tracking-wide uppercase ${STATUS_STYLES[child.taskStatus] || STATUS_STYLES.DEFAULT}`}>
-                        {child.taskStatus ? child.taskStatus.replace('_', ' ') : 'TO DO'}
-                      </span>
+                    {/* Right side: Custom Dashboard-style Interactive Button Triggers */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Priority Button Trigger */}
+                      {syncingSubTaskId === child.id ? (
+                        <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                      ) : (() => {
+                        // 🟢 Robust key lookup: handles null, undefined, "High", "high", or "HIGH"
+                        const rawPriority = child.priority || child.taskPriority;
+                        const prioKey = rawPriority ? String(rawPriority).toUpperCase() : 'MEDIUM';
+                        const prioConfig = PRIORITY_CONFIG[prioKey] || PRIORITY_CONFIG.MEDIUM || PRIORITY_CONFIG.DEFAULT;
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => triggerInlineMenuContainer(e, child.id, 'priority')}
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] uppercase shadow-2xs cursor-pointer ${prioConfig.style}`}
+                          >
+                            {prioConfig.icon}
+                            <span>{prioConfig.label}</span>
+                            <ChevronDown size={10} className="opacity-60 ml-0.5" />
+                          </button>
+                        );
+                      })()}
+
+                      {/* Status Button Trigger */}
+                      {syncingSubTaskId === child.id ? (
+                        <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => triggerInlineMenuContainer(e, child.id, 'status')}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wide uppercase shadow-2xs cursor-pointer ${STATUS_STYLES[child.taskStatus?.toUpperCase()] || STATUS_STYLES.DEFAULT}`}
+                        >
+                          <span>{(child.taskStatus || 'TO_DO').replace('_', ' ')}</span>
+                          <ChevronDown size={10} className="opacity-60" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -712,8 +965,12 @@ export default function TaskDetailsPage() {
             </div>
 
             <form onSubmit={handleAddComment} className="flex gap-3 items-start">
-              <div className="h-7 w-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 mt-1">
-                {(task.createdBy || 'U').charAt(0).toUpperCase()}
+              <div className="h-7 w-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 mt-1 overflow-hidden shadow-xs">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayUserName} className="h-full w-full object-cover" />
+                ) : (
+                  displayUserName.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="flex-1 flex flex-col gap-2 comment-editor-wrapper">
                 <SimpleMDE
@@ -733,80 +990,100 @@ export default function TaskDetailsPage() {
 
             <div className="space-y-3 pt-2">
               {comments && comments.length > 0 ? (
-                comments.map(comment => (
-                  <div key={comment.id} className="flex gap-3 bg-slate-50 p-3 rounded-lg border border-slate-150 relative group/comment">
-                    <div className="h-7 w-7 rounded-full bg-slate-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                      {(comment.author || 'U').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="font-semibold text-slate-800">{comment.author}</span>
-                        <span className="text-slate-400 font-normal">
-                          {comment.timestamp ? new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
-                        </span>
-                        {comment.updated && (
-                          <span className="text-slate-400 bg-slate-200/60 px-1 py-0.2 rounded text-[9px] font-medium tracking-wide">
-                            (Edited)
-                          </span>
+                comments.map(comment => {
+                  const isCurrentAuthorLoggedIn = comment.author === displayUserName;
+                  const commentAvatar = isCurrentAuthorLoggedIn ? avatarUrl : null;
+                  const commentAuthorName = comment.author || 'User';
+
+                  return (
+                    <div key={comment.id} className="flex gap-3 bg-slate-50 p-3 rounded-lg border border-slate-150 relative group/comment">
+                      <div className="h-7 w-7 rounded-full bg-slate-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 overflow-hidden shadow-xs">
+                        {commentAvatar ? (
+                          <img 
+                            src={commentAvatar} 
+                            alt={commentAuthorName} 
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(commentAuthorName)}&background=2563eb&color=fff`;
+                            }}
+                          />
+                        ) : (
+                          commentAuthorName.charAt(0).toUpperCase()
                         )}
                       </div>
 
-                      {editingCommentId === comment.id ? (
-                        <div className="comment-editor-wrapper pt-1 space-y-2" onClick={(e) => e.stopPropagation()}>
-                          <SimpleMDE
-                            value={editingCommentText}
-                            onChange={(val) => setEditingCommentText(val)}
-                            options={mdeOptions}
-                          />
-                          <div className="flex justify-end gap-2 text-xs">
-                            <button
-                              type="button"
-                              disabled={updatingComment}
-                              onClick={() => {
-                                setEditingCommentId(null);
-                                setEditingCommentText('');
-                              }}
-                              className="px-2.5 py-1 bg-slate-200 text-slate-600 hover:bg-slate-300 rounded font-medium transition-colors cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              disabled={updatingComment || !editingCommentText.trim()}
-                              onClick={() => handleUpdateComment(comment.id)}
-                              className="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400 rounded font-medium transition-colors shadow-xs cursor-pointer"
-                            >
-                              {updatingComment ? 'Saving...' : 'Save'}
-                            </button>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="font-semibold text-slate-800">{commentAuthorName}</span>
+                          <span className="text-slate-400 font-normal">
+                            {formatCommentDate(comment.createdAt || comment.timestamp)}
+                          </span>
+
+                          {comment.updated && (
+                            <span className="text-slate-400 bg-slate-200/60 px-1 py-0.2 rounded text-[9px] font-medium tracking-wide">
+                              (Edited)
+                            </span>
+                          )}
+                        </div>
+
+                        {editingCommentId === comment.id ? (
+                          <div className="comment-editor-wrapper pt-1 space-y-2" onClick={(e) => e.stopPropagation()}>
+                            <SimpleMDE
+                              value={editingCommentText}
+                              onChange={(val) => setEditingCommentText(val)}
+                              options={mdeOptions}
+                            />
+                            <div className="flex justify-end gap-2 text-xs">
+                              <button
+                                type="button"
+                                disabled={updatingComment}
+                                onClick={() => {
+                                  setEditingCommentId(null);
+                                  setEditingCommentText('');
+                                }}
+                                className="px-2.5 py-1 bg-slate-200 text-slate-600 hover:bg-slate-300 rounded font-medium transition-colors cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={updatingComment || !editingCommentText.trim()}
+                                onClick={() => handleUpdateComment(comment.id)}
+                                className="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400 rounded font-medium transition-colors shadow-xs cursor-pointer"
+                              >
+                                {updatingComment ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div 
-                          onClick={() => startEditingComment(comment)}
-                          title="Click to edit comment"
-                          className="text-xs text-slate-700 leading-relaxed markdown-container w-full overflow-hidden break-words cursor-pointer hover:bg-slate-100 p-1.5 rounded-md transition-colors"
-                        >
-                          <Markdown 
-                            remarkPlugins={[remarkBreaks]}
-                            components={markdownComponents}
+                        ) : (
+                          <div 
+                            onClick={() => startEditingComment(comment)}
+                            title="Click to edit comment"
+                            className="text-xs text-slate-700 leading-relaxed markdown-container w-full overflow-hidden break-words cursor-pointer hover:bg-slate-100 p-1.5 rounded-md transition-colors"
                           >
-                            {comment.comment}
-                          </Markdown>
-                        </div>
-                      )}
+                            <Markdown 
+                              remarkPlugins={[remarkBreaks]}
+                              components={markdownComponents}
+                            >
+                              {comment.comment}
+                            </Markdown>
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation(); 
+                          handleDeleteComment(comment.id);
+                        }}
+                        className="absolute right-3 top-3 text-slate-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 p-1 transition-all cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
                     </div>
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation(); 
-                        handleDeleteComment(comment.id);
-                      }}
-                      className="absolute right-3 top-3 text-slate-300 hover:text-red-500 opacity-0 group-hover/comment:opacity-100 p-1 transition-all cursor-pointer"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-slate-400 text-xs italic py-4">No comments posted yet.</div>
               )}
@@ -848,7 +1125,7 @@ export default function TaskDetailsPage() {
                 <select
                   value={editingValues.priority || 'MEDIUM'}
                   onChange={(e) => handleInputChange('priority', e.target.value)}
-                  className={`w-full appearance-none bg-transparent border rounded px-3 py-2 text-xs uppercase tracking-wider outline-none cursor-pointer transition-all text-center ${PRIORITY_STYLES[editingValues.priority] || PRIORITY_STYLES.DEFAULT}`}
+                  className={`w-full appearance-none bg-transparent border rounded px-3 py-2 text-xs uppercase tracking-wider outline-none cursor-pointer transition-all text-center ${PRIORITY_CONFIG[editingValues.priority?.toUpperCase()]?.style || PRIORITY_CONFIG.DEFAULT.style}`}
                 >
                   {(metadata.priorities || []).map(prio => (
                     <option key={prio} value={prio} className="bg-white text-slate-800 font-medium text-left">{prio.charAt(0) + prio.slice(1).toLowerCase()}</option>
@@ -873,12 +1150,13 @@ export default function TaskDetailsPage() {
                     editingValues.taskType === 'BUG' ? 'bg-red-50 text-red-700 border-red-200' :
                     editingValues.taskType === 'STORY' ? 'bg-green-50 text-green-700 border-green-200' :
                     editingValues.taskType === 'EPIC' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                    editingValues.taskType === 'SUB_TASK' ? 'bg-teal-50 text-teal-700 border-teal-200' :
                     'bg-blue-50 text-blue-700 border-blue-200'
                   }`}
                 >
-                  {(metadata.taskTypes || ['STORY', 'BUG', 'TASK', 'EPIC']).map(type => (
+                  {(metadata.taskTypes || ['STORY', 'BUG', 'TASK', 'EPIC', 'SUB_TASK']).map(type => (
                     <option key={type} value={type} className="bg-white text-slate-800 font-medium text-left">
-                      {type.charAt(0) + type.slice(1).toLowerCase()}
+                      {type.replace('_', ' ').charAt(0) + type.replace('_', ' ').slice(1).toLowerCase()}
                     </option>
                   ))}
                 </select>
@@ -974,6 +1252,56 @@ export default function TaskDetailsPage() {
 		  
         </div>
       </div>
+
+      {/* 🟢 FLOATING VIEWPORT-BOUNDED DROPDOWN POPOVER MENU (SAME AS DASHBOARD) */}
+      {activeInlineMenu && (
+        <div 
+          ref={inlineMenuRef}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 z-50 min-w-[150px] max-w-xs animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`
+          }}
+        >
+          <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100 mb-0.5 tracking-wider">
+            Select {activeInlineMenu.fieldType}
+          </div>
+
+          {activeInlineMenu.fieldType === 'status' && 
+            (metadata.statuses || ['TO_DO', 'IN_PROGRESS', 'DONE']).map(opt => (
+              <button
+                key={opt}
+                onClick={() => executeInlineSubTaskMutation(activeInlineMenu.subTaskId, 'status', opt)}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <span className={`w-2 h-2 rounded-full ${
+                  opt === 'DONE' ? 'bg-green-500' : opt === 'IN_PROGRESS' ? 'bg-blue-500' : 'bg-slate-400'
+                }`} />
+                <span>{opt.replace('_', ' ')}</span>
+              </button>
+            ))
+          }
+
+          {activeInlineMenu.fieldType === 'priority' && 
+            (metadata.priorities || ['LOW', 'MEDIUM', 'HIGH', 'HIGHEST', 'CRITICAL']).map(opt => {
+              const config = PRIORITY_CONFIG[opt.toUpperCase()] || PRIORITY_CONFIG.DEFAULT;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => executeInlineSubTaskMutation(activeInlineMenu.subTaskId, 'priority', opt)}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {config.icon}
+                    <span className="capitalize">{config.label}</span>
+                  </div>
+                </button>
+              );
+            })
+          }
+        </div>
+      )}
 
       {/* FLOATING MODAL CONFIRMATION WINDOW */}
       {showDeleteModal && (
