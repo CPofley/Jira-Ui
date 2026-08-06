@@ -6,6 +6,7 @@ import 'easymde/dist/easymde.min.css';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';  
+import { API_BASE_URL } from '../config/api';
 
 import { 
   ChevronRight, 
@@ -26,7 +27,6 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// 🟢 Jira Priority Visual Mapping (Chevron Edges only)
 const PRIORITY_CONFIG = {
   LOW: {
     label: 'Low',
@@ -276,7 +276,7 @@ export default function TaskDetailsPage() {
   useEffect(() => {
     if (!taskId) return;
 
-    const fetchTaskPromise = fetch(`http://localhost:8080/api/tasks/get/created-task?taskId=${taskId}`, {
+    const fetchTaskPromise = fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${taskId}`, {
       headers: getAuthHeaders()
     }).then((res) => {
       if (res.status === 401) { handleLogout(); throw new Error("Unauthorized"); }
@@ -284,11 +284,11 @@ export default function TaskDetailsPage() {
       return res.json();
     }).then((data) => data.tasks || data);
 
-    const fetchMetadataPromise = fetch(`http://localhost:8080/api/tasks/config`, {
+    const fetchMetadataPromise = fetch(`${API_BASE_URL}/api/tasks/config`, {
       headers: getAuthHeaders()
     }).then((res) => res.ok ? res.json() : null).catch(() => null);
 
-    const fetchCommentsPromise = fetch(`http://localhost:8080/api/comments/task/${taskId}`, {
+    const fetchCommentsPromise = fetch(`${API_BASE_URL}/api/comments/task/${taskId}`, {
       headers: getAuthHeaders()
     }).then((res) => res.ok ? res.json() : []).catch(() => []);
 
@@ -331,7 +331,7 @@ export default function TaskDetailsPage() {
     setSavingField(fieldName);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({ [fieldName]: newValue })
@@ -364,7 +364,6 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // 🟢 CALCULATE EXACT VIEWPORT COORDINATES FOR DROPDOWN POPOVER
   const triggerInlineMenuContainer = (e, subTaskId, fieldType) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -387,7 +386,7 @@ export default function TaskDetailsPage() {
     const payloadKey = fieldName === 'status' ? 'taskStatus' : fieldName;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/update/${subTaskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${subTaskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({ [payloadKey]: targetValue })
@@ -401,7 +400,6 @@ export default function TaskDetailsPage() {
       if (response.ok) {
         const updatedSubTask = await response.json();
         
-        // 🟢 Update local state immediately with fresh server payload
         setTask(prev => ({
           ...prev,
           subIssues: (prev.subIssues || []).map(sub => 
@@ -437,7 +435,7 @@ export default function TaskDetailsPage() {
   const executeDeleteTask = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/delete/${taskId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -471,7 +469,7 @@ export default function TaskDetailsPage() {
 
     setIsLinking(true);
     try {
-      const response = await fetch('http://localhost:8080/api/tasks/link-tasks', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/link-tasks`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -503,7 +501,6 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // ➕ CREATE SUB-TASK SUBMISSION HANDLER
   const handleCreateSubTask = async (e) => {
     e.preventDefault();
     if (!subTaskTitle.trim() || creatingSubTask) return;
@@ -517,7 +514,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/tasks/create/sub-task', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/create/sub-task`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -531,7 +528,6 @@ export default function TaskDetailsPage() {
       if (response.ok) {
         const createdSubTaskDto = await response.json();
         
-        // Append new sub-task into existing subIssues list
         setTask(prev => ({
           ...prev,
           subIssues: [...(prev.subIssues || []), createdSubTaskDto]
@@ -564,7 +560,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/comments/save', {
+      const response = await fetch(`${API_BASE_URL}/api/comments/save`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -601,7 +597,7 @@ export default function TaskDetailsPage() {
 
     setUpdatingComment(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/comments/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/comments/update`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ 
@@ -645,7 +641,7 @@ export default function TaskDetailsPage() {
   return (
     <div className="min-h-screen w-screen bg-white font-sans text-sm text-slate-800 text-left mb-12 relative">
       
-      {/* Interactive Breadcrumb Bar with Right-Aligned Avatar Layout Header */}
+      {/* Interactive Breadcrumb Bar */}
       <div className="px-8 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div className="flex items-center gap-2 text-slate-500 font-medium text-xs flex-wrap">
           <button onClick={() => navigate('/projects')} className="hover:text-blue-600 hover:underline transition-colors cursor-pointer">
@@ -824,7 +820,7 @@ export default function TaskDetailsPage() {
             )}
           </div>
 
-          {/* 🟢 LINKED TASKS & SUB-TASK QUICK-CREATE SECTION */}
+          {/* LINKED TASKS & SUB-TASK QUICK-CREATE SECTION */}
           <div className="border-t border-slate-200 pt-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-slate-900 font-semibold flex items-center gap-2">
@@ -834,7 +830,6 @@ export default function TaskDetailsPage() {
                 </span>
               </h3>
 
-              {/* PLUS BUTTON TO TRIGGER CREATION INPUT */}
               <button
                 type="button"
                 onClick={() => setShowSubTaskInput(prev => !prev)}
@@ -846,7 +841,6 @@ export default function TaskDetailsPage() {
               </button>
             </div>
 
-            {/* QUICK-CREATE SUB-TASK INPUT FORM */}
             {showSubTaskInput && (
               <form onSubmit={handleCreateSubTask} className="mb-3 flex items-center gap-2 animate-in fade-in duration-150 bg-slate-50 p-2 rounded-lg border border-slate-200">
                 <input
@@ -878,7 +872,6 @@ export default function TaskDetailsPage() {
               </form>
             )}
 
-            {/* 🟢 SUB-ISSUES LIST WITH STRICT FIXED-COLUMN GRID ALIGNMENT */}
             {task.subIssues && task.subIssues.length > 0 ? (
               <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden bg-white shadow-xs">
                 {task.subIssues.map((child) => (
@@ -887,13 +880,12 @@ export default function TaskDetailsPage() {
                     onClick={(e) => {
                       const selection = window.getSelection();
                       if (selection && selection.toString().length > 0) {
-                        return; // Don't navigate if text is selected
+                        return;
                       }
                       navigate(`/tasks/details?taskId=${child.id}`);
                     }}
                     className="flex items-center justify-between p-3 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs group/item gap-4"
                   >
-                    {/* Left side: Task ID, Type Badge, and Truncated Title */}
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <span className="font-mono font-bold text-blue-600 group-hover/item:underline flex-shrink-0 w-16">
                         TASK-{child.id}
@@ -906,9 +898,7 @@ export default function TaskDetailsPage() {
                       </span>
                     </div>
                     
-                    {/* Right side: Fixed-width Action Buttons Grid */}
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      {/* Priority Column (Fixed Width: 110px / w-28) */}
                       <div className="w-28 flex justify-end">
                         {syncingSubTaskId === child.id ? (
                           <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
@@ -933,7 +923,6 @@ export default function TaskDetailsPage() {
                         })()}
                       </div>
 
-                      {/* Status Column (Fixed Width: 120px / w-30) */}
                       <div className="w-30 flex justify-end">
                         {syncingSubTaskId === child.id ? (
                           <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
@@ -1255,7 +1244,6 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* 🟢 FLOATING VIEWPORT-BOUNDED DROPDOWN POPOVER MENU */}
       {activeInlineMenu && (
         <div 
           ref={inlineMenuRef}
@@ -1343,7 +1331,7 @@ export default function TaskDetailsPage() {
         </div>
       )}
 
-      {/* MODERN FLOATING TOAST POP-UP WINDOW */}
+      {/* FLOATING TOAST POP-UP WINDOW */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border text-xs font-medium tracking-wide ${
