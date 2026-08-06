@@ -8,6 +8,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';  
 import { API_BASE_URL } from '../config/api';
 
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+
 import { 
   ChevronRight, 
   Check, 
@@ -24,7 +27,8 @@ import {
   ChevronUp,
   ChevronsUp,
   Equal,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 
 const PRIORITY_CONFIG = {
@@ -94,6 +98,40 @@ const TYPE_ICONS = {
   DEFAULT: <CheckSquare size={12} className="text-white mr-1.5" />
 };
 
+// 🔒 Compact Avatar Lock Badge Component
+const LockBadge = ({ lockInfo, fieldName }) => {
+  if (!lockInfo) return null;
+
+  const userName = typeof lockInfo === 'object' ? lockInfo.name : lockInfo;
+  const userAvatar = typeof lockInfo === 'object' ? lockInfo.avatar : null;
+  const initial = userName ? userName.trim().charAt(0).toUpperCase() : 'U';
+
+  return (
+    <div 
+      className="inline-flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-pulse shadow-2xs cursor-help select-none"
+      title={`${userName} is currently editing ${fieldName}`}
+    >
+      <Lock size={10} className="text-amber-600 flex-shrink-0" />
+      <div className="h-4 w-4 rounded-full overflow-hidden border border-amber-300 bg-amber-600 text-white font-bold flex items-center justify-center text-[9px] uppercase shadow-inner flex-shrink-0">
+        {userAvatar && userAvatar !== 'null' && userAvatar !== 'undefined' ? (
+          <img 
+            src={userAvatar} 
+            alt={userName} 
+            className="h-full w-full object-cover" 
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.style.display = 'none';
+            }}
+          />
+        ) : (
+          initial
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function TaskDetailsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -103,12 +141,14 @@ export default function TaskDetailsPage() {
   const titleRef = useRef(null); 
   const userDropdownRef = useRef(null); 
   const inlineMenuRef = useRef(null);
+  const stompClientRef = useRef(null);
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingField, setSavingField] = useState(null);
   const [editingValues, setEditingValues] = useState({});
-  
+  const [lockedFields, setLockedFields] = useState({});
+
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   const [comments, setComments] = useState([]);
@@ -129,7 +169,7 @@ export default function TaskDetailsPage() {
   const [creatingSubTask, setCreatingSubTask] = useState(false);
 
   // Dynamic Interactive Dropdown States
-  const [activeInlineMenu, setActiveInlineMenu] = useState(null); // { subTaskId, fieldType }
+  const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [syncingSubTaskId, setSyncingSubTaskId] = useState(null);
 
@@ -146,6 +186,36 @@ export default function TaskDetailsPage() {
     priorities: ['LOW', 'MEDIUM', 'HIGH', 'HIGHEST', 'CRITICAL'],
     taskTypes: ['STORY', 'BUG', 'TASK', 'EPIC', 'SUB_TASK']
   });
+
+  const storedUserRaw = localStorage.getItem('jira_user');
+  const parsedUserData = useMemo(() => {
+    if (!storedUserRaw) return null;
+    try {
+      if (storedUserRaw.trim().startsWith('{')) return JSON.parse(storedUserRaw);
+    } catch (e) { console.error(e); }
+    return null;
+  }, [storedUserRaw]);
+
+  const displayUserName = useMemo(() => {
+    if (parsedUserData) return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
+    return storedUserRaw || 'User';
+  }, [parsedUserData, storedUserRaw]);
+
+  const userEmail = useMemo(() => {
+    return parsedUserData?.email || localStorage.getItem('jira_user_email') || 'user@example.com';
+  }, [parsedUserData]);
+
+  const avatarUrl = useMemo(() => {
+    let rawUrl = localStorage.getItem('jira_user_avatar');
+    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
+      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
+    }
+    if (!rawUrl) return null;
+    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
+      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
+    }
+    return rawUrl;
+  }, [parsedUserData]);
 
   const mdeOptions = useMemo(() => {
     return {
@@ -166,10 +236,8 @@ export default function TaskDetailsPage() {
   const markdownComponents = {
     code({ node, inline, className, children, ...props }) {
       if (children == null) return null;
-      
       const match = /language-(\w+)/.exec(className || '');
       const codeString = String(children).replace(/\n$/, '');
-      
       if (!codeString.trim()) return null;
 
       if (inline) {
@@ -231,47 +299,75 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // Shared User Metadata Engine
-  const storedUserRaw = localStorage.getItem('jira_user');
-  const parsedUserData = useMemo(() => {
-    if (!storedUserRaw) return null;
-    try {
-      if (storedUserRaw.trim().startsWith('{')) return JSON.parse(storedUserRaw);
-    } catch (e) { console.error(e); }
-    return null;
-  }, [storedUserRaw]);
-
-  const displayUserName = useMemo(() => {
-    if (parsedUserData) return parsedUserData.username || parsedUserData.name || parsedUserData.email?.split('@')[0] || 'User';
-    return storedUserRaw || 'User';
-  }, [parsedUserData, storedUserRaw]);
-
-  const avatarUrl = useMemo(() => {
-    let rawUrl = localStorage.getItem('jira_user_avatar');
-    if ((!rawUrl || rawUrl === 'null' || rawUrl === 'undefined') && parsedUserData) {
-      rawUrl = parsedUserData.pictureUrl || parsedUserData.picture;
+  const broadcastLock = (fieldName, isLocking) => {
+    if (stompClientRef.current?.connected) {
+      stompClientRef.current.publish({
+        destination: `/app/tasks/${taskId}/lock`,
+        body: JSON.stringify({
+          fieldName,
+          user: displayUserName,
+          avatarUrl: avatarUrl,
+          type: isLocking ? 'FIELD_LOCK' : 'FIELD_UNLOCK'
+        })
+      });
     }
-    if (!rawUrl) return null;
-    if (rawUrl.startsWith('"') && rawUrl.endsWith('"')) {
-      try { return JSON.parse(rawUrl); } catch (e) { return rawUrl.replace(/^"|"$/g, ''); }
-    }
-    return rawUrl;
-  }, [parsedUserData]);
-
-  const formatCommentDate = (dateVal) => {
-    if (!dateVal) return 'Just now';
-    const date = new Date(dateVal);
-    if (isNaN(date.getTime())) return 'Just now';
-
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
   };
+
+  // 📡 WebSocket Initialization for Real-Time Lock & Update Sync
+  useEffect(() => {
+    if (!taskId) return;
+
+    const baseWsUrl = API_BASE_URL.replace('/api', '');
+    const socket = new SockJS(`${baseWsUrl}/ws`);
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe(`/topic/tasks/${taskId}`, (message) => {
+          const payload = JSON.parse(message.body);
+
+          if (payload.type === 'FIELD_LOCK') {
+            if (payload.user !== displayUserName) {
+              setLockedFields(prev => ({ 
+                ...prev, 
+                [payload.fieldName]: { name: payload.user, avatar: payload.avatarUrl } 
+              }));
+            }
+          } else if (payload.type === 'FIELD_UNLOCK') {
+            setLockedFields(prev => ({ ...prev, [payload.fieldName]: null }));
+          } else if (payload.type === 'FIELD_UPDATE' || payload.fields) {
+            const fieldUpdates = payload.fields || {};
+
+            setTask(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                ...fieldUpdates,
+                ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
+                ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
+              };
+            });
+
+            setEditingValues(prev => ({
+              ...prev,
+              ...fieldUpdates,
+              ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
+              ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
+            }));
+          }
+        });
+      }
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (client.connected) {
+        client.deactivate();
+      }
+    };
+  }, [taskId, displayUserName]);
 
   useEffect(() => {
     if (!taskId) return;
@@ -330,11 +426,17 @@ export default function TaskDetailsPage() {
     const newValue = editingValues[fieldName];
     setSavingField(fieldName);
 
+    const payload = {
+      taskId: parseInt(taskId),
+      fields: { [fieldName]: newValue },
+      emailId: userEmail
+    };
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ [fieldName]: newValue })
+        body: JSON.stringify(payload)
       });
 
       if (response.status === 401) {
@@ -346,6 +448,7 @@ export default function TaskDetailsPage() {
         const updatedTask = await response.json();
         setTask(updatedTask);
         setEditingValues(updatedTask);
+        broadcastLock(fieldName, false);
         setTimeout(() => {
           if (fieldName === 'title') autoResizeTitle();
         }, 50);
@@ -384,12 +487,17 @@ export default function TaskDetailsPage() {
     setActiveInlineMenu(null);
 
     const payloadKey = fieldName === 'status' ? 'taskStatus' : fieldName;
+    const payload = {
+      taskId: parseInt(subTaskId),
+      fields: { [payloadKey]: targetValue },
+      emailId: userEmail
+    };
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/tasks/update/${subTaskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ [payloadKey]: targetValue })
+        body: JSON.stringify(payload)
       });
 
       if (response.status === 401) {
@@ -427,6 +535,7 @@ export default function TaskDetailsPage() {
 
   const cancelFieldUpdate = (fieldName) => {
     setEditingValues(prev => ({ ...prev, [fieldName]: task[fieldName] }));
+    broadcastLock(fieldName, false);
     setTimeout(() => {
       if (fieldName === 'title') autoResizeTitle();
     }, 50);
@@ -748,23 +857,30 @@ export default function TaskDetailsPage() {
           
           {/* Summary Title Block */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Summary / Title</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">Summary / Title</label>
+              <LockBadge lockInfo={lockedFields.title} fieldName="title" />
+            </div>
             <div className="flex items-start gap-2">
               <textarea
                 ref={titleRef}
                 rows="1"
+                disabled={!!lockedFields.title}
+                onFocus={() => broadcastLock('title', true)}
+                onBlur={() => broadcastLock('title', false)}
                 value={editingValues.title || ''}
                 onInput={autoResizeTitle}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                className="text-2xl font-semibold text-slate-900 leading-tight w-full border border-transparent hover:border-slate-200 focus:border-blue-500 rounded px-2 py-1 outline-none transition-all bg-transparent focus:bg-white resize-none overflow-hidden h-auto"
+                className={`text-2xl font-semibold leading-tight w-full border rounded px-2 py-1 outline-none transition-all resize-none overflow-hidden h-auto ${
+                  lockedFields.title 
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200 opacity-70' 
+                    : 'bg-transparent border-transparent hover:border-slate-200 focus:border-blue-500 text-slate-900 focus:bg-white'
+                }`}
               />
-              {editingValues.title !== task.title && (
+              {editingValues.title !== task.title && !lockedFields.title && (
                 <div className="flex gap-1 pt-1">
                   <button onClick={() => commitFieldUpdate('title')} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer"><Check size={16} /></button>
-                  <button onClick={() => {
-                    cancelFieldUpdate('title');
-                    setTimeout(autoResizeTitle, 50);
-                  }} className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 cursor-pointer"><X size={16} /></button>
+                  <button onClick={() => cancelFieldUpdate('title')} className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 cursor-pointer"><X size={16} /></button>
                 </div>
               )}
             </div>
@@ -772,7 +888,10 @@ export default function TaskDetailsPage() {
 
           {/* Description */}
           <div>
-            <h3 className="text-slate-900 font-semibold mb-2">Description</h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-slate-900 font-semibold">Description</h3>
+              <LockBadge lockInfo={lockedFields.description} fieldName="description" />
+            </div>
             {isEditingDescription ? (
               <div className="flex flex-col gap-2 comment-editor-wrapper">
                 <SimpleMDE
@@ -803,9 +922,18 @@ export default function TaskDetailsPage() {
               </div>
             ) : (
               <div 
-                onClick={() => setIsEditingDescription(true)}
-                className="w-full overflow-hidden break-words border border-slate-100 hover:border-slate-300 hover:bg-slate-50 rounded p-4 bg-transparent text-slate-700 leading-relaxed cursor-text min-h-[100px] transition-all markdown-container"
-                title="Click to edit description"
+                onClick={() => {
+                  if (!lockedFields.description) {
+                    setIsEditingDescription(true);
+                    broadcastLock('description', true);
+                  }
+                }}
+                className={`w-full overflow-hidden break-words border rounded p-4 text-slate-700 leading-relaxed min-h-[100px] transition-all markdown-container ${
+                  lockedFields.description 
+                    ? 'bg-slate-100/80 cursor-not-allowed border-slate-200 opacity-60' 
+                    : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50 cursor-text'
+                }`}
+                title={lockedFields.description ? `Locked by ${typeof lockedFields.description === 'object' ? lockedFields.description.name : lockedFields.description}` : "Click to edit description"}
               >
                 {task.description ? (
                   <Markdown 
@@ -820,7 +948,7 @@ export default function TaskDetailsPage() {
             )}
           </div>
 
-          {/* LINKED TASKS & SUB-TASK QUICK-CREATE SECTION */}
+          {/* Child Issues / Sub-Tasks */}
           <div className="border-t border-slate-200 pt-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-slate-900 font-semibold flex items-center gap-2">
@@ -1007,15 +1135,7 @@ export default function TaskDetailsPage() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2 text-[11px]">
                           <span className="font-semibold text-slate-800">{commentAuthorName}</span>
-                          <span className="text-slate-400 font-normal">
-                            {formatCommentDate(comment.createdAt || comment.timestamp)}
-                          </span>
-
-                          {comment.updated && (
-                            <span className="text-slate-400 bg-slate-200/60 px-1 py-0.2 rounded text-[9px] font-medium tracking-wide">
-                              (Edited)
-                            </span>
-                          )}
+                          <span className="text-slate-400 font-normal">Just now</span>
                         </div>
 
                         {editingCommentId === comment.id ? (
@@ -1053,10 +1173,7 @@ export default function TaskDetailsPage() {
                             title="Click to edit comment"
                             className="text-xs text-slate-700 leading-relaxed markdown-container w-full overflow-hidden break-words cursor-pointer hover:bg-slate-100 p-1.5 rounded-md transition-colors"
                           >
-                            <Markdown 
-                              remarkPlugins={[remarkBreaks]}
-                              components={markdownComponents}
-                            >
+                            <Markdown remarkPlugins={[remarkBreaks]} components={markdownComponents}>
                               {comment.comment}
                             </Markdown>
                           </div>
@@ -1091,19 +1208,30 @@ export default function TaskDetailsPage() {
 
           {/* STATUS SELECTOR */}
           <div className="pt-2">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
+              <LockBadge lockInfo={lockedFields.taskStatus} fieldName="status" />
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <select
+                  disabled={!!lockedFields.taskStatus}
+                  onFocus={() => broadcastLock('taskStatus', true)}
+                  onBlur={() => broadcastLock('taskStatus', false)}
                   value={editingValues.taskStatus || 'TO_DO'}
                   onChange={(e) => handleInputChange('taskStatus', e.target.value)}
-                  className={`w-full appearance-none bg-transparent border rounded px-3 py-2 text-xs font-bold tracking-wide outline-none cursor-pointer transition-all text-center ${STATUS_STYLES[editingValues.taskStatus] || STATUS_STYLES.DEFAULT}`}
+                  className={`w-full appearance-none border rounded px-3 py-2 text-xs font-bold tracking-wide outline-none transition-all text-center ${
+                    lockedFields.taskStatus 
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                      : `${STATUS_STYLES[editingValues.taskStatus] || STATUS_STYLES.DEFAULT} cursor-pointer`
+                  }`}
                 >
                   {(metadata.statuses || []).map(status => (
                     <option key={status} value={status} className="bg-white text-slate-800 font-medium text-left">{status.replace('_', ' ')}</option>
                   ))}
                 </select>
               </div>
-              {editingValues.taskStatus !== task.taskStatus && (
+              {editingValues.taskStatus !== task.taskStatus && !lockedFields.taskStatus && (
                 <button onClick={() => commitFieldUpdate('taskStatus')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 shadow-sm cursor-pointer"><Check size={14} /></button>
               )}
             </div>
@@ -1111,19 +1239,30 @@ export default function TaskDetailsPage() {
 
           {/* PRIORITY SELECTOR */}
           <div className="pt-1">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Priority</label>
+              <LockBadge lockInfo={lockedFields.priority} fieldName="priority" />
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <select
+                  disabled={!!lockedFields.priority}
+                  onFocus={() => broadcastLock('priority', true)}
+                  onBlur={() => broadcastLock('priority', false)}
                   value={editingValues.priority || 'MEDIUM'}
                   onChange={(e) => handleInputChange('priority', e.target.value)}
-                  className={`w-full appearance-none bg-transparent border rounded px-3 py-2 text-xs uppercase tracking-wider outline-none cursor-pointer transition-all text-center ${PRIORITY_CONFIG[editingValues.priority?.toUpperCase()]?.style || PRIORITY_CONFIG.DEFAULT.style}`}
+                  className={`w-full appearance-none border rounded px-3 py-2 text-xs uppercase tracking-wider outline-none transition-all text-center ${
+                    lockedFields.priority 
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                      : `${PRIORITY_CONFIG[editingValues.priority?.toUpperCase()]?.style || PRIORITY_CONFIG.DEFAULT.style} cursor-pointer`
+                  }`}
                 >
                   {(metadata.priorities || []).map(prio => (
                     <option key={prio} value={prio} className="bg-white text-slate-800 font-medium text-left">{prio.charAt(0) + prio.slice(1).toLowerCase()}</option>
                   ))}
                 </select>
               </div>
-              {editingValues.priority !== task.priority && (
+              {editingValues.priority !== task.priority && !lockedFields.priority && (
                 <button onClick={() => commitFieldUpdate('priority')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 shadow-sm cursor-pointer"><Check size={14} /></button>
               )}
             </div>
@@ -1131,18 +1270,28 @@ export default function TaskDetailsPage() {
 
           {/* DYNAMIC ISSUE TYPE SELECTOR */}
           <div className="pt-1">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 text-left">Issue Type</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Issue Type</label>
+              <LockBadge lockInfo={lockedFields.taskType} fieldName="issue type" />
+            </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <select
+                  disabled={!!lockedFields.taskType}
+                  onFocus={() => broadcastLock('taskType', true)}
+                  onBlur={() => broadcastLock('taskType', false)}
                   value={editingValues.taskType || 'TASK'}
                   onChange={(e) => handleInputChange('taskType', e.target.value)}
-                  className={`w-full appearance-none bg-transparent border rounded px-3 py-2 text-xs font-bold tracking-wide uppercase outline-none cursor-pointer transition-all text-center ${
-                    editingValues.taskType === 'BUG' ? 'bg-red-50 text-red-700 border-red-200' :
-                    editingValues.taskType === 'STORY' ? 'bg-green-50 text-green-700 border-green-200' :
-                    editingValues.taskType === 'EPIC' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                    editingValues.taskType === 'SUB_TASK' ? 'bg-teal-50 text-teal-700 border-teal-200' :
-                    'bg-blue-50 text-blue-700 border-blue-200'
+                  className={`w-full appearance-none border rounded px-3 py-2 text-xs font-bold tracking-wide uppercase outline-none transition-all text-center ${
+                    lockedFields.taskType 
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                      : `${
+                          editingValues.taskType === 'BUG' ? 'bg-red-50 text-red-700 border-red-200' :
+                          editingValues.taskType === 'STORY' ? 'bg-green-50 text-green-700 border-green-200' :
+                          editingValues.taskType === 'EPIC' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          editingValues.taskType === 'SUB_TASK' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200'
+                        } cursor-pointer`
                   }`}
                 >
                   {(metadata.taskTypes || ['STORY', 'BUG', 'TASK', 'EPIC', 'SUB_TASK']).map(type => (
@@ -1152,7 +1301,7 @@ export default function TaskDetailsPage() {
                   ))}
                 </select>
               </div>
-              {editingValues.taskType !== task.taskType && (
+              {editingValues.taskType !== task.taskType && !lockedFields.taskType && (
                 <button 
                   onClick={() => commitFieldUpdate('taskType')} 
                   className="p-2 bg-green-600 text-white rounded hover:bg-green-700 shadow-sm h-full flex items-center justify-center cursor-pointer"
@@ -1198,16 +1347,26 @@ export default function TaskDetailsPage() {
 
           {/* ASSIGNEE INPUT */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assignee</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignee</label>
+              <LockBadge lockInfo={lockedFields.assignee} fieldName="assignee" />
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                disabled={!!lockedFields.assignee}
+                onFocus={() => broadcastLock('assignee', true)}
+                onBlur={() => broadcastLock('assignee', false)}
                 value={editingValues.assignee || ''}
                 placeholder="Unassigned"
                 onChange={(e) => handleInputChange('assignee', e.target.value)}
-                className="flex-1 border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 font-medium text-xs"
+                className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium ${
+                  lockedFields.assignee 
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                    : 'border-slate-300 text-slate-800'
+                }`}
               />
-              {editingValues.assignee !== task.assignee && (
+              {editingValues.assignee !== task.assignee && !lockedFields.assignee && (
                 <button onClick={() => commitFieldUpdate('assignee')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 h-full cursor-pointer"><Check size={14} /></button>
               )}
             </div>
@@ -1215,16 +1374,26 @@ export default function TaskDetailsPage() {
 
           {/* REPORTER INPUT */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Reporter</label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Reporter</label>
+              <LockBadge lockInfo={lockedFields.reporter} fieldName="reporter" />
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                disabled={!!lockedFields.reporter}
+                onFocus={() => broadcastLock('reporter', true)}
+                onBlur={() => broadcastLock('reporter', false)}
                 value={editingValues.reporter || ''}
                 placeholder="System"
                 onChange={(e) => handleInputChange('reporter', e.target.value)}
-                className="flex-1 border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-slate-800 font-medium text-xs"
+                className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium ${
+                  lockedFields.reporter 
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                    : 'border-slate-300 text-slate-800'
+                }`}
               />
-              {editingValues.reporter !== task.reporter && (
+              {editingValues.reporter !== task.reporter && !lockedFields.reporter && (
                 <button onClick={() => commitFieldUpdate('reporter')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 h-full cursor-pointer"><Check size={14} /></button>
               )}
             </div>
