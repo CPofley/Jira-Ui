@@ -6,6 +6,7 @@ import 'easymde/dist/easymde.min.css';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';  
+import { API_BASE_URL } from '../config/api';
 
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -30,7 +31,6 @@ import {
   Lock
 } from 'lucide-react';
 
-// 🟢 Jira Priority Visual Mapping (Chevron Edges only)
 const PRIORITY_CONFIG = {
   LOW: {
     label: 'Low',
@@ -317,7 +317,8 @@ export default function TaskDetailsPage() {
   useEffect(() => {
     if (!taskId) return;
 
-    const socket = new SockJS(`http://localhost:8080/ws`);
+    const baseWsUrl = API_BASE_URL.replace('/api', '');
+    const socket = new SockJS(`${baseWsUrl}/ws`);
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
@@ -371,7 +372,7 @@ export default function TaskDetailsPage() {
   useEffect(() => {
     if (!taskId) return;
 
-    const fetchTaskPromise = fetch(`http://localhost:8080/api/tasks/get/created-task?taskId=${taskId}`, {
+    const fetchTaskPromise = fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${taskId}`, {
       headers: getAuthHeaders()
     }).then((res) => {
       if (res.status === 401) { handleLogout(); throw new Error("Unauthorized"); }
@@ -379,11 +380,11 @@ export default function TaskDetailsPage() {
       return res.json();
     }).then((data) => data.tasks || data);
 
-    const fetchMetadataPromise = fetch(`http://localhost:8080/api/tasks/config`, {
+    const fetchMetadataPromise = fetch(`${API_BASE_URL}/api/tasks/config`, {
       headers: getAuthHeaders()
     }).then((res) => res.ok ? res.json() : null).catch(() => null);
 
-    const fetchCommentsPromise = fetch(`http://localhost:8080/api/comments/task/${taskId}`, {
+    const fetchCommentsPromise = fetch(`${API_BASE_URL}/api/comments/task/${taskId}`, {
       headers: getAuthHeaders()
     }).then((res) => res.ok ? res.json() : []).catch(() => []);
 
@@ -432,7 +433,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -493,7 +494,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/update/${subTaskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${subTaskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -507,7 +508,6 @@ export default function TaskDetailsPage() {
       if (response.ok) {
         const updatedSubTask = await response.json();
         
-        // 🟢 Update local state immediately with fresh server payload
         setTask(prev => ({
           ...prev,
           subIssues: (prev.subIssues || []).map(sub => 
@@ -544,7 +544,7 @@ export default function TaskDetailsPage() {
   const executeDeleteTask = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/delete/${taskId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -578,7 +578,7 @@ export default function TaskDetailsPage() {
 
     setIsLinking(true);
     try {
-      const response = await fetch('http://localhost:8080/api/tasks/link-tasks', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/link-tasks`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -623,7 +623,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/tasks/create/sub-task', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/create/sub-task`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -669,7 +669,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:8080/api/comments/save', {
+      const response = await fetch(`${API_BASE_URL}/api/comments/save`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -706,7 +706,7 @@ export default function TaskDetailsPage() {
 
     setUpdatingComment(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/comments/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/comments/update`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ 
@@ -1413,7 +1413,6 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* FLOATING VIEWPORT-BOUNDED DROPDOWN POPOVER MENU */}
       {activeInlineMenu && (
         <div 
           ref={inlineMenuRef}
@@ -1501,7 +1500,7 @@ export default function TaskDetailsPage() {
         </div>
       )}
 
-      {/* MODERN FLOATING TOAST POP-UP WINDOW */}
+      {/* FLOATING TOAST POP-UP WINDOW */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border text-xs font-medium tracking-wide ${

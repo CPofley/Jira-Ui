@@ -1,6 +1,7 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 export default function LoginScreen() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function LoginScreen() {
       localStorage.setItem('jira_token', jwtToken);
 
       // 2. Sync with Spring Boot database
-      const response = await fetch('http://localhost:8080/api/users/sync', {
+      const response = await fetch(`${API_BASE_URL}/api/users/sync`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
