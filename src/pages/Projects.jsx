@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -26,11 +27,11 @@ export default function Projects() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/projects/my-projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects/my-projects`, {
         headers: getAuthHeaders()
       });
 
-      // 🔴 NEW: Catch expired tokens from the backend!
+      // Catch expired tokens from the backend
       if (response.status === 401 || response.status === 403) {
         console.warn("Token expired. Redirecting to login...");
         localStorage.removeItem('jira_token'); // Destroy the dead token
@@ -55,7 +56,7 @@ export default function Projects() {
     
     setIsCreating(true);
     try {
-      const response = await fetch('http://localhost:8080/api/projects/create', {
+      const response = await fetch(`${API_BASE_URL}/api/projects/create`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ 

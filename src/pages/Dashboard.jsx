@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { API_BASE_URL } from '../config/api';
 import { 
   Plus, 
   X, 
@@ -79,7 +80,7 @@ export default function JiraDashboard() {
   
   // Custom Popover tracking overlay management states
   const [activeInlineMenu, setActiveInlineMenu] = useState(null); // format: { taskId, fieldType }
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 }); // 🟢 Dynamic pixel tracking coordinates
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 }); // Dynamic pixel tracking coordinates
   const [syncingTaskId, setSyncingTaskId] = useState(null);
   
   const dashboardUserRef = useRef(null);
@@ -146,11 +147,11 @@ export default function JiraDashboard() {
     try {
       let apiUrl = '';
       if (widget.type === 'STATUS') {
-        apiUrl = `http://localhost:8080/api/tasks/by-status/${projectId}?status=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
+        apiUrl = `${API_BASE_URL}/api/tasks/by-status/${projectId}?status=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
       } else if (widget.type === 'PRIORITY') {
-        apiUrl = `http://localhost:8080/api/tasks/by-priority/${projectId}?priority=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
+        apiUrl = `${API_BASE_URL}/api/tasks/by-priority/${projectId}?priority=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
       } else if (widget.type === 'TYPE') {
-        apiUrl = `http://localhost:8080/api/tasks/by-task-type/${projectId}?type=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
+        apiUrl = `${API_BASE_URL}/api/tasks/by-task-type/${projectId}?type=${widget.value}&page=${pageNum}&size=${PAGE_SIZE}`;
       }
 
       const response = await fetch(apiUrl, { headers: getAuthHeaders() });
@@ -182,7 +183,7 @@ export default function JiraDashboard() {
   const fetchAllTasksTableData = async () => {
     setLoadingTable(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/project/${projectId}?page=${allTasksPage}&size=${allTasksSize}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/project/${projectId}?page=${allTasksPage}&size=${allTasksSize}`, {
         headers: getAuthHeaders() 
       });
       
@@ -211,7 +212,7 @@ export default function JiraDashboard() {
     const payloadKey = fieldFieldName === 'type' ? 'taskType' : fieldFieldName === 'status' ? 'taskStatus' : 'priority';
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({ [payloadKey]: targetValue })
@@ -240,7 +241,7 @@ export default function JiraDashboard() {
     const { taskId, widgetId } = taskToDelete;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/tasks/delete/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/delete/${taskId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -279,7 +280,7 @@ export default function JiraDashboard() {
   useEffect(() => {
     async function initDashboard() {
       try {
-        const configRes = await fetch('http://localhost:8080/api/tasks/config', {
+        const configRes = await fetch(`${API_BASE_URL}/api/tasks/config`, {
           headers: getAuthHeaders()
         });
         if (configRes.status === 401) {
@@ -330,12 +331,10 @@ export default function JiraDashboard() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🟢 FIXED CALCULATION METHOD: Extracts strict absolute window boundary position coordinates
   const triggerInlineMenuContainer = (e, taskId, fieldType) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     
-    // Mount directly beneath button using fixed coordinates to dodge overflow clipping rules
     setMenuPosition({
       top: rect.bottom + 4,
       left: Math.min(rect.left, window.innerWidth - 180) 
@@ -418,7 +417,7 @@ export default function JiraDashboard() {
         projectId: parseInt(projectId) 
       };
 
-      const response = await fetch('http://localhost:8080/api/tasks/create', {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/create`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload) 
@@ -524,7 +523,7 @@ export default function JiraDashboard() {
               className="absolute left-2 top-13 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
             >
               <div className="flex flex-col items-center text-center space-y-3">
-                <div className="h-12 w-14 max-w-[48px] h-12 rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-50">
+                <div className="h-12 w-14 max-w-[48px] rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-50">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt={displayUserName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -673,7 +672,7 @@ export default function JiraDashboard() {
             <div className="flex items-center gap-2">
               <ListTodo size={16} className="text-blue-600" />
               <h3 className="font-bold text-slate-900 text-sm tracking-wide">All Workspace Issues</h3>
-			  <button 
+              <button 
                 onClick={fetchAllTasksTableData}
                 disabled={loadingTable}
                 className="ml-2 p-1 text-slate-400 hover:text-blue-600 bg-white border border-slate-200 hover:border-blue-200 shadow-sm rounded transition-all cursor-pointer disabled:opacity-50"
@@ -754,7 +753,7 @@ export default function JiraDashboard() {
                             <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
                           ) : (
                             <button
-                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'type')} // 🟢 Fixed screen coordinate calculation trigger
+                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'type')}
                               className={`flex items-center gap-1.5 font-bold text-[10px] uppercase border px-2 py-0.5 rounded-md shadow-2xs cursor-pointer ${COMPACT_TYPE_STYLES[task.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}
                             >
                               {TABLE_TYPE_ICONS[task.taskType?.toUpperCase()] || TABLE_TYPE_ICONS.TASK}
@@ -770,7 +769,7 @@ export default function JiraDashboard() {
                             <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
                           ) : (
                             <button
-                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'status')} // 🟢 Fixed screen coordinate calculation trigger
+                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'status')}
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wide uppercase shadow-2xs cursor-pointer ${STATUS_STYLES[task.taskStatus?.toUpperCase()] || STATUS_STYLES.DEFAULT}`}
                             >
                               <span>{(task.taskStatus || '').replace('_', ' ')}</span>
@@ -785,7 +784,7 @@ export default function JiraDashboard() {
                             <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
                           ) : (
                             <button
-                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'priority')} // 🟢 Fixed screen coordinate calculation trigger
+                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'priority')}
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold uppercase shadow-2xs cursor-pointer ${PRIORITY_STYLES[task.priority?.toUpperCase()] || PRIORITY_STYLES.DEFAULT}`}
                             >
                               <span>{task.priority?.toLowerCase()}</span>
@@ -827,14 +826,12 @@ export default function JiraDashboard() {
             )}
           </div>
 
-          {/* 🟢 FIXED: VIEWPORT-BOUNDED NO-CLIP OVERLAY PANEL */}
           {activeInlineMenu && (
             <div 
               ref={inlineMenuRef}
               onClick={(e) => e.stopPropagation()}
               className="fixed bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 z-50 min-w-[160px] max-w-xs animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
               style={{
-                // 🟢 Uses absolute view coordinates directly over the table layers to avoid overflow constraints
                 top: `${menuPosition.top}px`,
                 left: `${menuPosition.left}px`
               }}
@@ -982,7 +979,7 @@ export default function JiraDashboard() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Assignee Email</label>
                   <input type="email" name="assignee" placeholder="user@example.com" value={formData.assignee} onChange={handleChange} className="w-full border border-slate-300 rounded p-2 text-xs outline-none" />
                 </div>
-				 <div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Reporter Email *</label>
                   <input 
                     required 
