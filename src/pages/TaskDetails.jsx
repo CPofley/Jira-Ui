@@ -28,7 +28,8 @@ import {
   ChevronsUp,
   Equal,
   AlertCircle,
-  Lock
+  Lock,
+  User
 } from 'lucide-react';
 
 const PRIORITY_CONFIG = {
@@ -98,11 +99,53 @@ const TYPE_ICONS = {
   DEFAULT: <CheckSquare size={12} className="text-white mr-1.5" />
 };
 
+// 👤 Helper Component: Dynamic User Profile Avatar (Supports "username|avatarUrl" delimited format)
+const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-6 h-6" }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!rawString || rawString.trim() === '') {
+    return (
+      <div className={`${size} rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 flex-shrink-0`}>
+        <User size={12} />
+      </div>
+    );
+  }
+
+  // Parse "Name|Url" delimiter
+  const parts = rawString.split('|');
+  const cleanName = parts[0] ? parts[0].trim() : '';
+  const parsedAvatarUrl = parts[1] && parts[1].trim() !== '' && parts[1] !== 'null' && parts[1] !== 'undefined'
+    ? parts[1].trim() 
+    : fallbackAvatarUrl;
+
+  const initial = cleanName ? cleanName.charAt(0).toUpperCase() : 'U';
+
+  if (parsedAvatarUrl && !imgError) {
+    return (
+      <img 
+        src={parsedAvatarUrl} 
+        alt={cleanName} 
+        className={`${size} rounded-full object-cover border border-slate-200 shadow-2xs flex-shrink-0`}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div 
+      className={`${size} rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px] uppercase shadow-2xs flex-shrink-0 border border-blue-700`}
+      title={cleanName}
+    >
+      {initial}
+    </div>
+  );
+};
+
 // 🔒 Compact Avatar Lock Badge Component
 const LockBadge = ({ lockInfo, fieldName }) => {
   if (!lockInfo) return null;
 
-  // Supports both object payload { name, avatar } and legacy string fallback
   const userName = typeof lockInfo === 'object' ? lockInfo.name : lockInfo;
   const userAvatar = typeof lockInfo === 'object' ? lockInfo.avatar : null;
   const initial = userName ? userName.trim().charAt(0).toUpperCase() : 'U';
@@ -148,8 +191,8 @@ export default function TaskDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [savingField, setSavingField] = useState(null);
   const [editingValues, setEditingValues] = useState({});
-  const [lockedFields, setLockedFields] = useState({}); // { fieldName: { name, avatar } }
-  
+  const [lockedFields, setLockedFields] = useState({});
+
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   const [comments, setComments] = useState([]);
@@ -300,7 +343,6 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // Broadcast lock events with avatarUrl over STOMP
   const broadcastLock = (fieldName, isLocking) => {
     if (stompClientRef.current?.connected) {
       stompClientRef.current.publish({
@@ -315,63 +357,61 @@ export default function TaskDetailsPage() {
     }
   };
 
- // 📡 WebSocket Initialization for Real-Time Lock & Update Sync
-useEffect(() => {
-  if (!taskId) return;
+  // 📡 WebSocket Initialization for Real-Time Lock & Update Sync
+  useEffect(() => {
+    if (!taskId) return;
 
-  const baseWsUrl = API_BASE_URL.replace('/api', '');
-  const socket = new SockJS(`${baseWsUrl}/ws`);
-  const client = new Client({
-    webSocketFactory: () => socket,
-    reconnectDelay: 5000,
-    onConnect: () => {
-      client.subscribe(`/topic/tasks/${taskId}`, (message) => {
-        const payload = JSON.parse(message.body);
-        console.log("📡 Received STOMP payload on Laptop:", payload); // 👈 Check Dev Console (F12)
+    const baseWsUrl = API_BASE_URL.replace('/api', '');
+    const socket = new SockJS(`${baseWsUrl}/ws`);
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe(`/topic/tasks/${taskId}`, (message) => {
+          const payload = JSON.parse(message.body);
 
-        if (payload.type === 'FIELD_LOCK') {
-          if (payload.user !== displayUserName) {
-            setLockedFields(prev => ({ 
-              ...prev, 
-              [payload.fieldName]: { name: payload.user, avatar: payload.avatarUrl } 
-            }));
-          }
-        } else if (payload.type === 'FIELD_UNLOCK') {
-          setLockedFields(prev => ({ ...prev, [payload.fieldName]: null }));
-        } else if (payload.type === 'FIELD_UPDATE' || payload.fields) {
-          const fieldUpdates = payload.fields || {};
+          if (payload.type === 'FIELD_LOCK') {
+            if (payload.user !== displayUserName) {
+              setLockedFields(prev => ({ 
+                ...prev, 
+                [payload.fieldName]: { name: payload.user, avatar: payload.avatarUrl } 
+              }));
+            }
+          } else if (payload.type === 'FIELD_UNLOCK') {
+            setLockedFields(prev => ({ ...prev, [payload.fieldName]: null }));
+          } else if (payload.type === 'FIELD_UPDATE' || payload.fields) {
+            const fieldUpdates = payload.fields || {};
 
-          setTask(prev => {
-            if (!prev) return prev;
-            return {
+            setTask(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                ...fieldUpdates,
+                ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
+                ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
+              };
+            });
+
+            setEditingValues(prev => ({
               ...prev,
               ...fieldUpdates,
-              // Normalize status key in case backend/DTO sends taskStatus vs status
               ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
               ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
-            };
-          });
+            }));
+          }
+        });
+      }
+    });
 
-          setEditingValues(prev => ({
-            ...prev,
-            ...fieldUpdates,
-            ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
-            ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
-          }));
-        }
-      });
-    }
-  });
+    client.activate();
+    stompClientRef.current = client;
 
-  client.activate();
-  stompClientRef.current = client;
-
-  return () => {
-    if (client.connected) {
-      client.deactivate();
-    }
-  };
-}, [taskId, displayUserName]);
+    return () => {
+      if (client.connected) {
+        client.deactivate();
+      }
+    };
+  }, [taskId, displayUserName]);
 
   useEffect(() => {
     if (!taskId) return;
@@ -427,12 +467,14 @@ useEffect(() => {
   };
 
   const commitFieldUpdate = async (fieldName) => {
-    const newValue = editingValues[fieldName];
+    // Send only clean username to backend API
+    const rawValue = editingValues[fieldName];
+    const cleanValue = typeof rawValue === 'string' ? rawValue.split('|')[0] : rawValue;
     setSavingField(fieldName);
 
     const payload = {
       taskId: parseInt(taskId),
-      fields: { [fieldName]: newValue },
+      fields: { [fieldName]: cleanValue },
       emailId: userEmail
     };
 
@@ -452,7 +494,7 @@ useEffect(() => {
         const updatedTask = await response.json();
         setTask(updatedTask);
         setEditingValues(updatedTask);
-        broadcastLock(fieldName, false); // Unlock field after commit
+        broadcastLock(fieldName, false);
         setTimeout(() => {
           if (fieldName === 'title') autoResizeTitle();
         }, 50);
@@ -511,6 +553,7 @@ useEffect(() => {
 
       if (response.ok) {
         const updatedSubTask = await response.json();
+        
         setTask(prev => ({
           ...prev,
           subIssues: (prev.subIssues || []).map(sub => 
@@ -1008,7 +1051,13 @@ useEffect(() => {
                 {task.subIssues.map((child) => (
                   <div 
                     key={child.id}
-                    onClick={() => navigate(`/tasks/details?taskId=${child.id}`)}
+                    onClick={(e) => {
+                      const selection = window.getSelection();
+                      if (selection && selection.toString().length > 0) {
+                        return;
+                      }
+                      navigate(`/tasks/details?taskId=${child.id}`);
+                    }}
                     className="flex items-center justify-between p-3 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs group/item gap-4"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -1342,54 +1391,68 @@ useEffect(() => {
 
           <hr className="border-slate-100" />
 
-          {/* ASSIGNEE INPUT */}
+          {/* ASSIGNEE INPUT WITH USER PROFILE AVATAR */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assignee</label>
               <LockBadge lockInfo={lockedFields.assignee} fieldName="assignee" />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                disabled={!!lockedFields.assignee}
-                onFocus={() => broadcastLock('assignee', true)}
-                onBlur={() => broadcastLock('assignee', false)}
-                value={editingValues.assignee || ''}
-                placeholder="Unassigned"
-                onChange={(e) => handleInputChange('assignee', e.target.value)}
-                className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium ${
-                  lockedFields.assignee 
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                    : 'border-slate-300 text-slate-800'
-                }`}
-              />
+              <div className={`flex-1 flex items-center gap-2 border rounded p-1.5 transition-all ${
+                lockedFields.assignee 
+                  ? 'bg-slate-100 border-slate-200 cursor-not-allowed' 
+                  : 'bg-white border-slate-300 focus-within:ring-2 focus-within:ring-blue-500'
+              }`}>
+                <UserAvatar 
+                  rawString={editingValues.assignee} 
+                  fallbackAvatarUrl={editingValues.assignee?.split('|')[0] === displayUserName ? avatarUrl : null} 
+                  size="w-6 h-6" 
+                />
+                <input
+                  type="text"
+                  disabled={!!lockedFields.assignee}
+                  onFocus={() => broadcastLock('assignee', true)}
+                  onBlur={() => broadcastLock('assignee', false)}
+                  value={editingValues.assignee ? editingValues.assignee.split('|')[0] : ''}
+                  placeholder="Unassigned"
+                  onChange={(e) => handleInputChange('assignee', e.target.value)}
+                  className="flex-1 bg-transparent border-none outline-none text-xs font-medium text-slate-800 placeholder-slate-400"
+                />
+              </div>
               {editingValues.assignee !== task.assignee && !lockedFields.assignee && (
                 <button onClick={() => commitFieldUpdate('assignee')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 h-full cursor-pointer"><Check size={14} /></button>
               )}
             </div>
           </div>
 
-          {/* REPORTER INPUT */}
+          {/* REPORTER INPUT WITH USER PROFILE AVATAR */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Reporter</label>
               <LockBadge lockInfo={lockedFields.reporter} fieldName="reporter" />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                disabled={!!lockedFields.reporter}
-                onFocus={() => broadcastLock('reporter', true)}
-                onBlur={() => broadcastLock('reporter', false)}
-                value={editingValues.reporter || ''}
-                placeholder="System"
-                onChange={(e) => handleInputChange('reporter', e.target.value)}
-                className={`flex-1 border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none text-xs font-medium ${
-                  lockedFields.reporter 
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                    : 'border-slate-300 text-slate-800'
-                }`}
-              />
+              <div className={`flex-1 flex items-center gap-2 border rounded p-1.5 transition-all ${
+                lockedFields.reporter 
+                  ? 'bg-slate-100 border-slate-200 cursor-not-allowed' 
+                  : 'bg-white border-slate-300 focus-within:ring-2 focus-within:ring-blue-500'
+              }`}>
+                <UserAvatar 
+                  rawString={editingValues.reporter} 
+                  fallbackAvatarUrl={editingValues.reporter?.split('|')[0] === displayUserName ? avatarUrl : null} 
+                  size="w-6 h-6" 
+                />
+                <input
+                  type="text"
+                  disabled={!!lockedFields.reporter}
+                  onFocus={() => broadcastLock('reporter', true)}
+                  onBlur={() => broadcastLock('reporter', false)}
+                  value={editingValues.reporter ? editingValues.reporter.split('|')[0] : ''}
+                  placeholder="System"
+                  onChange={(e) => handleInputChange('reporter', e.target.value)}
+                  className="flex-1 bg-transparent border-none outline-none text-xs font-medium text-slate-800 placeholder-slate-400"
+                />
+              </div>
               {editingValues.reporter !== task.reporter && !lockedFields.reporter && (
                 <button onClick={() => commitFieldUpdate('reporter')} className="p-2 bg-green-600 text-white rounded hover:bg-green-700 h-full cursor-pointer"><Check size={14} /></button>
               )}
