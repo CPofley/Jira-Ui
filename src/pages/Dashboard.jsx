@@ -21,7 +21,8 @@ import {
   LogOut,
   RefreshCw,
   FolderSync,
-  ChevronDown
+  ChevronDown,
+  User
 } from 'lucide-react'; 
 
 const DEFAULT_WIDGETS = [
@@ -68,6 +69,63 @@ const TABLE_TYPE_ICONS = {
   BUG: <Bug size={12} className="text-red-600" />,
   TASK: <CheckSquare size={12} className="text-blue-500" />,
   EPIC: <Zap size={12} className="fill-current text-purple-600" />
+};
+
+// 👤 Helper Component: Parses "Name|AvatarUrl" format to render User Profile Avatar & Clean Name
+const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!rawString || rawString.trim() === '' || rawString.toLowerCase() === 'unassigned') {
+    return (
+      <div className="flex items-center gap-1.5 text-slate-400 italic">
+        <div className={`${size} rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0`}>
+          <User size={10} />
+        </div>
+        <span>Unassigned</span>
+      </div>
+    );
+  }
+
+  if (rawString.toLowerCase() === 'system') {
+    return (
+      <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+        <div className={`${size} rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[9px] flex-shrink-0`}>
+          S
+        </div>
+        <span>System</span>
+      </div>
+    );
+  }
+
+  // Parse "Name|Url" delimiter
+  const parts = rawString.split('|');
+  const cleanName = parts[0] ? parts[0].trim() : '';
+  const parsedAvatarUrl = parts[1] && parts[1].trim() !== '' && parts[1] !== 'null' && parts[1] !== 'undefined'
+    ? parts[1].trim() 
+    : fallbackAvatarUrl;
+
+  const initial = cleanName ? cleanName.charAt(0).toUpperCase() : 'U';
+
+  return (
+    <div className="flex items-center gap-2 min-w-0" title={cleanName}>
+      {parsedAvatarUrl && !imgError ? (
+        <img 
+          src={parsedAvatarUrl} 
+          alt={cleanName} 
+          className={`${size} rounded-full object-cover border border-slate-200 shadow-2xs flex-shrink-0`}
+          referrerPolicy="no-referrer"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div 
+          className={`${size} rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[9px] uppercase shadow-2xs flex-shrink-0 border border-blue-700`}
+        >
+          {initial}
+        </div>
+      )}
+      <span className="truncate font-medium text-slate-700 capitalize">{cleanName}</span>
+    </div>
+  );
 };
 
 export default function JiraDashboard() {
@@ -793,12 +851,16 @@ export default function JiraDashboard() {
                           )}
                         </td>
 
+                        {/* ASSIGNEE COLUMN WITH AVATAR */}
                         <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
-                          {task.assignee || <span className="text-slate-400 italic font-normal">Unassigned</span>}
+                          <UserAvatar rawString={task.assignee} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                         </td>
+
+                        {/* REPORTER COLUMN WITH AVATAR */}
                         <td className="py-3 px-4 text-slate-500 font-medium whitespace-nowrap">
-                          {task.reporter || <span className="text-slate-400 italic font-normal">System</span>}
+                          <UserAvatar rawString={task.reporter} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                         </td>
+
                         <td className="py-3 px-4 text-center whitespace-nowrap">
                           <button
                             type="button"
