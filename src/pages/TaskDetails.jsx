@@ -969,6 +969,10 @@ export default function TaskDetailsPage() {
             ) : (
               <div 
                 onClick={() => {
+                  const selection = window.getSelection();
+                  if (selection && selection.toString().length > 0) {
+                    return; // Don't trigger edit mode if user is selecting text
+                  }
                   if (!lockedFields.description) {
                     setIsEditingDescription(true);
                     broadcastLock('description', true);
@@ -1215,7 +1219,13 @@ export default function TaskDetailsPage() {
                           </div>
                         ) : (
                           <div 
-                            onClick={() => startEditingComment(comment)}
+                            onClick={() => {
+                              const selection = window.getSelection();
+                              if (selection && selection.toString().length > 0) {
+                                return; // Don't trigger edit mode if user is selecting text
+                              }
+                              startEditingComment(comment);
+                            }}
                             title="Click to edit comment"
                             className="text-xs text-slate-700 leading-relaxed markdown-container w-full overflow-hidden break-words cursor-pointer hover:bg-slate-100 p-1.5 rounded-md transition-colors"
                           >
