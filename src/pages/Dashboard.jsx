@@ -31,21 +31,21 @@ const DEFAULT_WIDGETS = [
 ];
 
 const STATUS_STYLES = {
-  TO_DO: 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 font-semibold',
-  IN_PROGRESS: 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 font-semibold',
-  IN_REVIEW: 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 font-semibold',
-  TESTING: 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100 font-semibold',
-  DONE: 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-semibold',
-  BLOCKED: 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 font-semibold',
-  DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
+  TO_DO: 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 font-semibold',
+  IN_PROGRESS: 'bg-blue-950/50 text-blue-300 border-blue-800 font-semibold',
+  IN_REVIEW: 'bg-purple-950/50 text-purple-300 border-purple-800 font-semibold',
+  TESTING: 'bg-indigo-950/50 text-indigo-300 border-indigo-800 font-semibold',
+  DONE: 'bg-green-950/50 text-green-300 border-green-800 font-semibold',
+  BLOCKED: 'bg-red-950/50 text-red-300 border-red-800 font-semibold',
+  DEFAULT: 'bg-slate-800 text-slate-400 border-slate-700'
 };
 
 const PRIORITY_STYLES = {
-  LOW: 'bg-sky-50 text-sky-700 border-sky-300 font-semibold hover:bg-sky-100',
-  MEDIUM: 'bg-blue-50 text-blue-700 border-blue-300 font-semibold hover:bg-blue-100',
-  HIGH: 'bg-orange-50 text-orange-700 border-orange-300 font-bold hover:bg-orange-100',
-  CRITICAL: 'bg-red-100 text-red-800 border-red-300 font-extrabold animate-pulse hover:bg-red-200',
-  DEFAULT: 'bg-slate-50 text-slate-600 border-slate-200'
+  LOW: 'bg-sky-950/50 text-sky-300 border-sky-800 font-semibold hover:bg-sky-900/50',
+  MEDIUM: 'bg-blue-950/50 text-blue-300 border-blue-800 font-semibold hover:bg-blue-900/50',
+  HIGH: 'bg-orange-950/50 text-orange-300 border-orange-800 font-bold hover:bg-orange-900/50',
+  CRITICAL: 'bg-red-900/60 text-red-200 border-red-700 font-extrabold animate-pulse hover:bg-red-900',
+  DEFAULT: 'bg-slate-800 text-slate-400 border-slate-700'
 };
 
 const TYPE_STYLES = {
@@ -57,18 +57,18 @@ const TYPE_STYLES = {
 };
 
 const COMPACT_TYPE_STYLES = {
-  STORY: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
-  BUG: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
-  TASK: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
-  EPIC: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
-  DEFAULT: 'bg-slate-50 text-slate-700 border-slate-200'
+  STORY: 'bg-green-950/40 text-green-300 border-green-800 hover:bg-green-900/40',
+  BUG: 'bg-red-950/40 text-red-300 border-red-800 hover:bg-red-900/40',
+  TASK: 'bg-blue-950/40 text-blue-300 border-blue-800 hover:bg-blue-900/40',
+  EPIC: 'bg-purple-950/40 text-purple-300 border-purple-800 hover:bg-purple-900/40',
+  DEFAULT: 'bg-slate-800 text-slate-300 border-slate-700'
 };
 
 const TABLE_TYPE_ICONS = {
-  STORY: <Bookmark size={12} className="fill-current text-green-600" />,
-  BUG: <Bug size={12} className="text-red-600" />,
-  TASK: <CheckSquare size={12} className="text-blue-500" />,
-  EPIC: <Zap size={12} className="fill-current text-purple-600" />
+  STORY: <Bookmark size={12} className="fill-current text-green-400" />,
+  BUG: <Bug size={12} className="text-red-400" />,
+  TASK: <CheckSquare size={12} className="text-blue-400" />,
+  EPIC: <Zap size={12} className="fill-current text-purple-400" />
 };
 
 // 👤 Helper Component: Parses "Name|AvatarUrl" format to render User Profile Avatar & Clean Name
@@ -77,8 +77,8 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
 
   if (!rawString || rawString.trim() === '' || rawString.toLowerCase() === 'unassigned') {
     return (
-      <div className="flex items-center gap-1.5 text-slate-400 italic">
-        <div className={`${size} rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0`}>
+      <div className="flex items-center gap-1.5 text-slate-500 italic">
+        <div className={`${size} rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400`}>
           <User size={10} />
         </div>
         <span>Unassigned</span>
@@ -88,8 +88,8 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
 
   if (rawString.toLowerCase() === 'system') {
     return (
-      <div className="flex items-center gap-1.5 text-slate-500 font-medium">
-        <div className={`${size} rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[9px] flex-shrink-0`}>
+      <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+        <div className={`${size} rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-[9px] flex-shrink-0 border border-slate-700`}>
           S
         </div>
         <span>System</span>
@@ -97,7 +97,6 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
     );
   }
 
-  // Parse "Name|Url" delimiter
   const parts = rawString.split('|');
   const cleanName = parts[0] ? parts[0].trim() : '';
   const parsedAvatarUrl = parts[1] && parts[1].trim() !== '' && parts[1] !== 'null' && parts[1] !== 'undefined'
@@ -112,7 +111,7 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
         <img 
           src={parsedAvatarUrl} 
           alt={cleanName} 
-          className={`${size} rounded-full object-cover border border-slate-200 shadow-2xs flex-shrink-0`}
+          className={`${size} rounded-full object-cover border border-slate-700 shadow-2xs flex-shrink-0`}
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
         />
@@ -123,7 +122,7 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
           {initial}
         </div>
       )}
-      <span className="truncate font-medium text-slate-700 capitalize">{cleanName}</span>
+      <span className="truncate font-medium text-slate-200 capitalize">{cleanName}</span>
     </div>
   );
 };
@@ -136,10 +135,10 @@ export default function JiraDashboard() {
   const [loading, setLoading] = useState(true);
   const [taskToDelete, setTaskToDelete] = useState(null);
   
-  // Custom Popover tracking overlay management states
-  const [activeInlineMenu, setActiveInlineMenu] = useState(null); // format: { taskId, fieldType }
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 }); // Dynamic pixel tracking coordinates
+  const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [syncingTaskId, setSyncingTaskId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const dashboardUserRef = useRef(null);
   const inlineMenuRef = useRef(null);
@@ -375,7 +374,6 @@ export default function JiraDashboard() {
     }
   }, [allTasksPage, allTasksSize, projectId]);
 
-  // Handle auto-closing popup menu overlays when clicking elsewhere
   useEffect(() => {
     function handleClickOutside(event) {
       if (dashboardUserRef.current && !dashboardUserRef.current.contains(event.target)) {
@@ -412,10 +410,26 @@ export default function JiraDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const sortedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     if (!allTasks) return [];
-    
-    let sortableTasks = [...allTasks];
+    if (!searchQuery.trim()) return allTasks;
+
+    const query = searchQuery.toLowerCase().trim();
+    return allTasks.filter(task => {
+      const idMatch = String(task.id).includes(query);
+      const titleMatch = (task.title || '').toLowerCase().includes(query);
+      const typeMatch = (task.taskType || '').toLowerCase().includes(query);
+      const statusMatch = (task.taskStatus || '').toLowerCase().replace('_', ' ').includes(query);
+      const priorityMatch = (task.priority || '').toLowerCase().includes(query);
+      const assigneeMatch = (task.assignee || '').toLowerCase().includes(query);
+      const reporterMatch = (task.reporter || '').toLowerCase().includes(query);
+
+      return idMatch || titleMatch || typeMatch || statusMatch || priorityMatch || assigneeMatch || reporterMatch;
+    });
+  }, [allTasks, searchQuery]);
+
+  const sortedTasks = useMemo(() => {
+    let sortableTasks = [...filteredTasks];
     if (sortConfig.key !== null) {
       sortableTasks.sort((a, b) => {
         let aValue = a[sortConfig.key];
@@ -430,13 +444,13 @@ export default function JiraDashboard() {
       });
     }
     return sortableTasks;
-  }, [allTasks, sortConfig]);
+  }, [filteredTasks, sortConfig]);
 
   const renderSortIcon = (columnKey) => {
-    if (sortConfig.key !== columnKey) return <ArrowUpDown size={12} className="text-slate-300 ml-1 inline-block" />;
+    if (sortConfig.key !== columnKey) return <ArrowUpDown size={12} className="text-slate-600 ml-1 inline-block" />;
     return sortConfig.direction === 'asc' 
-      ? <ArrowUp size={12} className="text-blue-600 font-bold ml-1 inline-block" /> 
-      : <ArrowDown size={12} className="text-blue-600 font-bold ml-1 inline-block" />;
+      ? <ArrowUp size={12} className="text-blue-400 font-bold ml-1 inline-block" /> 
+      : <ArrowDown size={12} className="text-blue-400 font-bold ml-1 inline-block" />;
   };
 
   const handleAddCustomWidget = async (type, value) => {
@@ -536,14 +550,14 @@ export default function JiraDashboard() {
   }, [parsedUserData]);
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50 font-sans text-slate-800 text-left overflow-hidden">
+    <div className="flex h-screen w-screen bg-slate-900 font-sans text-slate-100 text-left overflow-hidden">
       {/* Sidebar Navigation */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col p-4 shadow-sm relative">
+      <div className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative">
         
         <div 
           ref={dashboardUserRef}
           onClick={() => setShowUserDropdown(!showUserDropdown)} 
-          className="flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-xs rounded-xl cursor-pointer transition-all group/header relative select-none"
+          className="flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-700 hover:bg-slate-700/50 hover:shadow-xs rounded-xl cursor-pointer transition-all group/header relative select-none"
           title="User Account Menu"
         >
           <div className="relative h-9 w-9 flex-shrink-0">
@@ -551,7 +565,7 @@ export default function JiraDashboard() {
               <img 
                 src={avatarUrl} 
                 alt="User Profile" 
-                className="h-full w-full rounded-full object-cover border border-slate-200 shadow-xs transition-all duration-200 ease-in-out group-hover/header:scale-115 group-hover/header:shadow-sm z-10 relative"
+                className="h-full w-full rounded-full object-cover border border-slate-700 shadow-xs transition-all duration-200 ease-in-out group-hover/header:scale-115 group-hover/header:shadow-sm z-10 relative"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   e.target.onerror = null;
@@ -563,11 +577,11 @@ export default function JiraDashboard() {
                 {displayUserName && displayUserName.trim() !== '' ? displayUserName.trim().charAt(0) : 'U'}
               </div>
             )}
-            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white z-20" />
+            <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-slate-800 z-20" />
           </div>
 
           <div className="flex flex-col min-w-0 flex-1">
-            <span className="font-bold text-slate-700 text-xs leading-tight truncate capitalize">
+            <span className="font-bold text-slate-200 text-xs leading-tight truncate capitalize">
               {displayUserName}
             </span>
             <span className="text-[10px] font-medium text-slate-400 tracking-wide mt-0.5">
@@ -578,10 +592,10 @@ export default function JiraDashboard() {
           {showUserDropdown && (
             <div 
               onClick={(e) => e.stopPropagation()} 
-              className="absolute left-2 top-13 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              className="absolute left-2 top-13 w-56 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
             >
               <div className="flex flex-col items-center text-center space-y-3">
-                <div className="h-12 w-14 max-w-[48px] rounded-full overflow-hidden border border-slate-200 shadow-xs bg-slate-50">
+                <div className="h-12 w-14 max-w-[48px] rounded-full overflow-hidden border border-slate-700 shadow-xs bg-slate-900">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt={displayUserName} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -592,17 +606,17 @@ export default function JiraDashboard() {
                 </div>
                 
                 <div className="space-y-0.5 w-full">
-                  <h4 className="text-xs font-bold text-slate-800 capitalize truncate">{displayUserName}</h4>
+                  <h4 className="text-xs font-bold text-slate-100 capitalize truncate">{displayUserName}</h4>
                   <p className="text-[10px] font-medium text-slate-400 truncate">{parsedUserData?.email || 'No email synced'}</p>
                 </div>
 
-                <div className="w-full border-t border-slate-100 pt-2 flex flex-col gap-1">
+                <div className="w-full border-t border-slate-700 pt-2 flex flex-col gap-1">
                   <button 
                     onClick={() => {
                       setShowUserDropdown(false);
                       navigate('/projects');
                     }}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-semibold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-all text-left cursor-pointer"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[11px] font-semibold text-slate-300 hover:bg-blue-950/50 hover:text-blue-400 transition-all text-left cursor-pointer"
                   >
                     <FolderSync size={13} />
                     <span>Switch Workspace</span>
@@ -618,18 +632,18 @@ export default function JiraDashboard() {
           <span>Create Task</span>
         </button>
 
-        <button onClick={() => setIsWidgetMenuOpen(true)} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 px-4 rounded flex items-center justify-center gap-2 transition-all text-sm mb-2 cursor-pointer">
+        <button onClick={() => setIsWidgetMenuOpen(true)} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 px-4 rounded flex items-center justify-center gap-2 transition-all text-sm mb-2 cursor-pointer">
           <LayoutGrid size={16} />
           <span>Add Custom Widget</span>
         </button>
 
-        <a href="#all-issues-table" className="w-full mt-2 text-slate-600 hover:bg-slate-50 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors">
+        <a href="#all-issues-table" className="w-full mt-2 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors">
           <ListTodo size={14} className="text-slate-400" />
           <span>All Workspace Issues</span>
         </a>
 
-        <div className="mt-auto border-t border-slate-100 pt-3">
-          <button onClick={handleLogout} className="w-full text-slate-500 hover:bg-slate-50 hover:text-red-600 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer">
+        <div className="mt-auto border-t border-slate-700 pt-3">
+          <button onClick={handleLogout} className="w-full text-slate-400 hover:bg-slate-700 hover:text-red-400 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer">
             <LogOut size={14} />
             <span>Log Out</span>
           </button>
@@ -637,28 +651,28 @@ export default function JiraDashboard() {
       </div>
 
       {/* Main Board Area */}
-      <div className="flex-1 p-8 overflow-y-auto space-y-12">
+      <div className="flex-1 p-8 overflow-y-auto space-y-12 bg-slate-900">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 mb-6">Custom Monitoring Workspace</h1>
+          <h1 className="text-2xl font-semibold text-slate-100 mb-6">Custom Monitoring Workspace</h1>
           
           {loading ? (
-            <div className="text-slate-500 text-xs">Syncing active workspace blocks...</div>
+            <div className="text-slate-400 text-xs">Syncing active workspace blocks...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
               {activeWidgets.map(widget => (
-                <div key={widget.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-h-[450px] max-h-[600px] flex flex-col gap-3 group relative">
+                <div key={widget.id} className="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm min-h-[450px] max-h-[600px] flex flex-col gap-3 group relative">
                   
-                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <div className="flex justify-between items-center border-b border-slate-700 pb-2">
                     <div className="flex items-center gap-2">
-                      {widget.type === 'STATUS' && <Sliders size={14} className="text-blue-500" />}
-                      {widget.type === 'PRIORITY' && <Layers size={14} className="text-amber-500" />}
-                      {widget.type === 'TYPE' && <LayoutGrid size={14} className="text-purple-500" />}
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{widget.title}</span>
+                      {widget.type === 'STATUS' && <Sliders size={14} className="text-blue-400" />}
+                      {widget.type === 'PRIORITY' && <Layers size={14} className="text-amber-400" />}
+                      {widget.type === 'TYPE' && <LayoutGrid size={14} className="text-purple-400" />}
+                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{widget.title}</span>
                     </div>
                     <button 
                       type="button"
                       onClick={() => handleRemoveWidget(widget.id)}
-                      className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-700 transition-colors cursor-pointer"
                       title="Remove Widget Column"
                     >
                       <X size={14} />
@@ -671,9 +685,9 @@ export default function JiraDashboard() {
                         <div 
                           key={taskItem.id}
                           onClick={() => navigate(`/tasks/details?taskId=${taskItem.id}`)}
-                          className="bg-slate-50 p-4 rounded-md border border-slate-200 hover:border-blue-400 cursor-pointer transition-all space-y-2 group/card"
+                          className="bg-slate-900/60 p-4 rounded-md border border-slate-700 hover:border-blue-500 cursor-pointer transition-all space-y-2 group/card"
                         >
-                          <h4 className="font-medium text-slate-900 text-xs line-clamp-2">{taskItem.title}</h4>
+                          <h4 className="font-medium text-slate-200 text-xs line-clamp-2">{taskItem.title}</h4>
                           
                           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                             <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider border font-bold ${TYPE_STYLES[taskItem.taskType?.toUpperCase()] || TYPE_STYLES.DEFAULT}`}>
@@ -694,7 +708,7 @@ export default function JiraDashboard() {
                                 e.stopPropagation();
                                 setTaskToDelete({ taskId: taskItem.id, widgetId: widget.id });
                               }}
-                              className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover/card:opacity-100 cursor-pointer"
+                              className="text-slate-500 hover:text-red-400 hover:bg-red-950/50 p-1 rounded transition-colors opacity-0 group-hover/card:opacity-100 cursor-pointer"
                               title="Delete Task"
                             >
                               <Trash2 size={12} />
@@ -703,7 +717,7 @@ export default function JiraDashboard() {
                         </div>
                       ))
                     ) : (
-                      <div className="text-slate-400 text-xs italic py-12 text-center border border-dashed border-slate-100 rounded-md bg-slate-50/50">
+                      <div className="text-slate-500 text-xs italic py-12 text-center border border-dashed border-slate-700 rounded-md bg-slate-900/30">
                         No matching records detected
                       </div>
                     )}
@@ -712,7 +726,7 @@ export default function JiraDashboard() {
                       <button
                         type="button"
                         onClick={() => fetchWidgetData(widget, widget.page, true)}
-                        className="w-full text-xs font-medium text-blue-600 hover:underline py-2 text-center block transition-all cursor-pointer"
+                        className="w-full text-xs font-medium text-blue-400 hover:underline py-2 text-center block transition-all cursor-pointer"
                       >
                         Load more tasks...
                       </button>
@@ -725,34 +739,54 @@ export default function JiraDashboard() {
         </div>
 
         {/* CORE SECTION 2: PAGINATED TRACKING REGISTRY TABLE */}
-        <div id="all-issues-table" className="w-full bg-white rounded-xl border border-slate-200 shadow-sm font-sans text-xs text-slate-700 pt-1 relative min-h-[500px]">
-          <div className="p-4 border-b border-slate-200 bg-slate-50/70 flex justify-between items-center">
+        <div id="all-issues-table" className="w-full bg-slate-800 rounded-xl border border-slate-700 shadow-sm font-sans text-xs text-slate-200 pt-1 relative min-h-[500px]">
+          <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex flex-col sm:flex-row justify-between items-center gap-3">
             <div className="flex items-center gap-2">
-              <ListTodo size={16} className="text-blue-600" />
-              <h3 className="font-bold text-slate-900 text-sm tracking-wide">All Workspace Issues</h3>
+              <ListTodo size={16} className="text-blue-400" />
+              <h3 className="font-bold text-slate-100 text-sm tracking-wide">All Workspace Issues</h3>
               <button 
                 onClick={fetchAllTasksTableData}
                 disabled={loadingTable}
-                className="ml-2 p-1 text-slate-400 hover:text-blue-600 bg-white border border-slate-200 hover:border-blue-200 shadow-sm rounded transition-all cursor-pointer disabled:opacity-50"
+                className="ml-2 p-1 text-slate-400 hover:text-blue-400 bg-slate-900 border border-slate-700 hover:border-blue-500 shadow-sm rounded transition-all cursor-pointer disabled:opacity-50"
                 title="Refresh Table Data"
               >
-                <RefreshCw size={12} className={loadingTable ? "animate-spin text-blue-500" : ""} />
+                <RefreshCw size={12} className={loadingTable ? "animate-spin text-blue-400" : ""} />
               </button>
+            </div>
+
+            {/* REAL-TIME SEARCH BAR INPUT */}
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Search tasks by ID, title, assignee..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
             
             <div className="flex items-center gap-2">
               <button 
                 disabled={allTasksPage === 0} 
                 onClick={() => setAllTasksPage(p => p - 1)}
-                className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors cursor-pointer"
+                className="p-1.5 border border-slate-700 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 transition-colors cursor-pointer text-slate-300"
               >
                 <ChevronLeft size={14} />
               </button>
-              <span className="font-semibold text-slate-600 px-1">Page {allTasksPage + 1}</span>
+              <span className="font-semibold text-slate-300 px-1">Page {allTasksPage + 1}</span>
               <button 
                 disabled={allTasks.length < allTasksSize} 
                 onClick={() => setAllTasksPage(p => p + 1)}
-                className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors cursor-pointer"
+                className="p-1.5 border border-slate-700 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 transition-colors cursor-pointer text-slate-300"
               >
                 <ChevronRight size={14} />
               </button>
@@ -765,43 +799,43 @@ export default function JiraDashboard() {
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    <th onClick={() => handleSort('id')} className="py-3 px-4 w-24 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                  <tr className="border-b border-slate-700 bg-slate-900/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th onClick={() => handleSort('id')} className="py-3 px-4 w-24 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Key / ID {renderSortIcon('id')}</div>
                     </th>
-                    <th onClick={() => handleSort('title')} className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('title')} className="py-3 px-4 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Summary Title {renderSortIcon('title')}</div>
                     </th>
-                    <th onClick={() => handleSort('taskType')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('taskType')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Type {renderSortIcon('taskType')}</div>
                     </th>
-                    <th onClick={() => handleSort('taskStatus')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('taskStatus')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Status {renderSortIcon('taskStatus')}</div>
                     </th>
-                    <th onClick={() => handleSort('priority')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('priority')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Priority {renderSortIcon('priority')}</div>
                     </th>
-                    <th onClick={() => handleSort('assignee')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('assignee')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Assignee {renderSortIcon('assignee')}</div>
                     </th>
-                    <th onClick={() => handleSort('reporter')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                    <th onClick={() => handleSort('reporter')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Reporter {renderSortIcon('reporter')}</div>
                     </th>
                     <th className="py-3 px-4 w-16 text-center select-none">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-700">
                   {sortedTasks.length > 0 ? (
                     sortedTasks.map((task) => (
                       <tr 
                         key={task.id} 
                         onClick={() => navigate(`/tasks/details?taskId=${task.id}`)}
-                        className="hover:bg-slate-50/80 cursor-pointer transition-colors group"
+                        className="hover:bg-slate-700/50 cursor-pointer transition-colors group"
                       >
-                        <td className="py-3 px-4 font-semibold text-blue-600 group-hover:underline whitespace-nowrap">
+                        <td className="py-3 px-4 font-semibold text-blue-400 group-hover:underline whitespace-nowrap">
                           TASK-{task.id}
                         </td>
-                        <td className="py-3 px-4 font-medium text-slate-900 max-w-xs truncate" title={task.title}>
+                        <td className="py-3 px-4 font-medium text-slate-100 max-w-xs truncate" title={task.title}>
                           {task.title}
                         </td>
 
@@ -852,12 +886,12 @@ export default function JiraDashboard() {
                         </td>
 
                         {/* ASSIGNEE COLUMN WITH AVATAR */}
-                        <td className="py-3 px-4 text-slate-600 font-medium whitespace-nowrap">
+                        <td className="py-3 px-4 text-slate-300 font-medium whitespace-nowrap">
                           <UserAvatar rawString={task.assignee} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                         </td>
 
                         {/* REPORTER COLUMN WITH AVATAR */}
-                        <td className="py-3 px-4 text-slate-500 font-medium whitespace-nowrap">
+                        <td className="py-3 px-4 text-slate-300 font-medium whitespace-nowrap">
                           <UserAvatar rawString={task.reporter} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                         </td>
 
@@ -868,7 +902,7 @@ export default function JiraDashboard() {
                               e.stopPropagation(); 
                               setTaskToDelete({ taskId: task.id, widgetId: null });
                             }}
-                            className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-all cursor-pointer inline-flex items-center"
+                            className="text-slate-500 hover:text-red-400 hover:bg-red-950/50 p-1.5 rounded transition-all cursor-pointer inline-flex items-center"
                             title="Delete Task From Workspace"
                           >
                             <Trash2 size={14} />
@@ -878,8 +912,8 @@ export default function JiraDashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="py-12 text-center text-slate-400 italic bg-slate-50/30">
-                        No active workspace logs detected in this page index slot.
+                      <td colSpan="8" className="py-12 text-center text-slate-500 italic bg-slate-900/30">
+                        No active workspace logs detected matching your search criteria.
                       </td>
                     </tr>
                   )}
@@ -892,13 +926,13 @@ export default function JiraDashboard() {
             <div 
               ref={inlineMenuRef}
               onClick={(e) => e.stopPropagation()}
-              className="fixed bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 z-50 min-w-[160px] max-w-xs animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
+              className="fixed bg-slate-800 rounded-xl shadow-2xl border border-slate-700 p-1.5 z-50 min-w-[160px] max-w-xs animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
               style={{
                 top: `${menuPosition.top}px`,
                 left: `${menuPosition.left}px`
               }}
             >
-              <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase border-b border-slate-100 mb-0.5 tracking-wider">
+              <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase border-b border-slate-700 mb-0.5 tracking-wider">
                 Select {activeInlineMenu.fieldType}
               </div>
 
@@ -907,7 +941,7 @@ export default function JiraDashboard() {
                   <button
                     key={opt}
                     onClick={() => executeInlineFieldMutation(activeInlineMenu.taskId, 'type', opt)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 capitalize flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-700 text-xs font-semibold text-slate-200 capitalize flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     {TABLE_TYPE_ICONS[opt.toUpperCase()]}
                     <span>{opt.toLowerCase()}</span>
@@ -920,7 +954,7 @@ export default function JiraDashboard() {
                   <button
                     key={opt}
                     onClick={() => executeInlineFieldMutation(activeInlineMenu.taskId, 'status', opt)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-700 text-xs font-bold text-slate-200 flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <span className={`w-2 h-2 rounded-full ${
                       opt === 'DONE' ? 'bg-green-500' : opt === 'IN_PROGRESS' ? 'bg-blue-500' : 'bg-slate-400'
@@ -935,7 +969,7 @@ export default function JiraDashboard() {
                   <button
                     key={opt}
                     onClick={() => executeInlineFieldMutation(activeInlineMenu.taskId, 'priority', opt)}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${
                       opt === 'CRITICAL' ? 'bg-red-500' : opt === 'HIGH' ? 'bg-orange-500' : opt === 'MEDIUM' ? 'bg-slate-400' : 'bg-blue-400'
@@ -951,38 +985,38 @@ export default function JiraDashboard() {
 
       {/* DIALOG 1: CONFIG MENU */}
       {isWidgetMenuOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-center items-center z-50">
-          <div className="bg-white w-full max-w-md rounded-lg shadow-xl p-6 border border-slate-200">
-            <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Configure Custom Widget Column</h2>
-              <button onClick={() => setIsWidgetMenuOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={18} /></button>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex justify-center items-center z-50">
+          <div className="bg-slate-800 w-full max-w-md rounded-lg shadow-xl p-6 border border-slate-700">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-700 mb-4">
+              <h2 className="text-lg font-semibold text-slate-100">Configure Custom Widget Column</h2>
+              <button onClick={() => setIsWidgetMenuOpen(false)} className="text-slate-400 hover:text-slate-200 cursor-pointer"><X size={18} /></button>
             </div>
             <div className="space-y-5 text-xs">
               <div>
-                <span className="block font-bold text-slate-500 uppercase tracking-wide mb-2">Filter By Status Lanes</span>
+                <span className="block font-bold text-slate-400 uppercase tracking-wide mb-2">Filter By Status Lanes</span>
                 <div className="flex flex-wrap gap-2">
                   {(metadata.statuses || []).map(status => (
-                    <button key={status} type="button" onClick={() => handleAddCustomWidget('STATUS', status)} className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded font-medium text-slate-700 transition-colors cursor-pointer">
+                    <button key={status} type="button" onClick={() => handleAddCustomWidget('STATUS', status)} className="px-3 py-1.5 bg-slate-900 hover:bg-blue-950/50 hover:text-blue-400 rounded font-medium text-slate-300 transition-colors cursor-pointer border border-slate-700">
                       + {status.replace('_', ' ')}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <span className="block font-bold text-slate-500 uppercase tracking-wide mb-2">Filter By Task Priorities</span>
+                <span className="block font-bold text-slate-400 uppercase tracking-wide mb-2">Filter By Task Priorities</span>
                 <div className="flex flex-wrap gap-2">
                   {(metadata.priorities || []).map(prio => (
-                    <button key={prio} type="button" onClick={() => handleAddCustomWidget('PRIORITY', prio)} className="px-3 py-1.5 bg-slate-100 hover:bg-amber-50 hover:text-amber-700 rounded font-medium text-slate-700 transition-colors tracking-wide cursor-pointer">
+                    <button key={prio} type="button" onClick={() => handleAddCustomWidget('PRIORITY', prio)} className="px-3 py-1.5 bg-slate-900 hover:bg-amber-950/50 hover:text-amber-400 rounded font-medium text-slate-300 transition-colors tracking-wide cursor-pointer border border-slate-700">
                       + {prio.charAt(0) + prio.slice(1).toLowerCase()}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <span className="block font-bold text-slate-500 uppercase tracking-wide mb-2">Filter By Issue Types</span>
+                <span className="block font-bold text-slate-400 uppercase tracking-wide mb-2">Filter By Issue Types</span>
                 <div className="flex flex-wrap gap-2">
                   {(metadata.taskTypes || []).map(type => (
-                    <button key={type} type="button" onClick={() => handleAddCustomWidget('TYPE', type)} className="px-3 py-1.5 bg-slate-100 hover:bg-purple-50 hover:text-purple-600 rounded font-medium text-slate-700 transition-colors cursor-pointer">
+                    <button key={type} type="button" onClick={() => handleAddCustomWidget('TYPE', type)} className="px-3 py-1.5 bg-slate-900 hover:bg-purple-950/50 hover:text-purple-400 rounded font-medium text-slate-300 transition-colors cursor-pointer border border-slate-700">
                       + {type.charAt(0) + type.slice(1).toLowerCase()}
                     </button>
                   ))}
@@ -995,25 +1029,25 @@ export default function JiraDashboard() {
 
       {/* DIALOG 2: CREATE ISSUE MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
-              <h2 className="text-xl font-medium text-slate-900">Create issue</h2>
-              <button onClick={() => setIsCreateOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded cursor-pointer"><X size={20} /></button>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex justify-center items-center z-50">
+          <div className="bg-slate-800 w-full max-w-2xl rounded-lg shadow-2xl border border-slate-700 flex flex-col max-h-[90vh] text-slate-100">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-700">
+              <h2 className="text-xl font-medium text-slate-100">Create issue</h2>
+              <button onClick={() => setIsCreateOpen(false)} className="text-slate-400 hover:text-slate-200 p-1 rounded cursor-pointer"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Issue Type *</label>
-                  <select name="taskType" value={formData.taskType} onChange={handleChange} className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs outline-none">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Issue Type *</label>
+                  <select name="taskType" value={formData.taskType} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none">
                     {metadata.taskTypes.map(type => (
                       <option key={type} value={type}>{type.charAt(0) + type.slice(1).toLowerCase()}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Status</label>
-                  <select name="taskStatus" value={formData.taskStatus} onChange={handleChange} className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs outline-none">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
+                  <select name="taskStatus" value={formData.taskStatus} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none">
                     {metadata.statuses.map(status => (
                       <option key={status} value={status}>{status.replace('_', ' ')}</option>
                     ))}
@@ -1021,28 +1055,28 @@ export default function JiraDashboard() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Summary / Title *</label>
-                <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full border border-slate-300 rounded p-2 text-xs outline-none" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Summary / Title *</label>
+                <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea rows="4" name="description" value={formData.description} onChange={handleChange} className="w-full border border-slate-300 rounded p-2 text-xs resize-none outline-none" />
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
+                <textarea rows="4" name="description" value={formData.description} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs resize-none outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Priority</label>
-                  <select name="priority" value={formData.priority} onChange={handleChange} className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs outline-none">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Priority</label>
+                  <select name="priority" value={formData.priority} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none">
                     {metadata.priorities.map(prio => (
                       <option key={prio} value={prio}>{prio.charAt(0) + prio.slice(1).toLowerCase()}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Assignee Email</label>
-                  <input type="email" name="assignee" placeholder="user@example.com" value={formData.assignee} onChange={handleChange} className="w-full border border-slate-300 rounded p-2 text-xs outline-none" />
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Assignee Email</label>
+                  <input type="email" name="assignee" placeholder="user@example.com" value={formData.assignee} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none placeholder-slate-600" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Reporter Email *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Reporter Email *</label>
                   <input 
                     required 
                     type="email" 
@@ -1050,13 +1084,13 @@ export default function JiraDashboard() {
                     placeholder="user@example.com" 
                     value={formData.reporter} 
                     onChange={handleChange} 
-                    className="w-full border border-slate-300 rounded p-2 text-xs outline-none" 
+                    className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs outline-none placeholder-slate-600" 
                   />
                 </div>
               </div>
               
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="hover:bg-slate-100 font-medium py-2 px-4 rounded text-slate-600 text-xs cursor-pointer">Cancel</button>
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-700 mt-6">
+                <button type="button" onClick={() => setIsCreateOpen(false)} className="hover:bg-slate-700 font-medium py-2 px-4 rounded text-slate-300 text-xs cursor-pointer">Cancel</button>
                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 font-medium py-2 px-4 rounded text-white shadow-sm text-xs cursor-pointer">Create</button>
               </div>
             </form>
@@ -1066,17 +1100,17 @@ export default function JiraDashboard() {
 
       {/* DIALOG 3: MODAL WINDOW CONFIRMATION POPUP */}
       {taskToDelete && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex justify-center items-center z-50">
-          <div className="bg-white w-full max-w-xs rounded-lg shadow-xl p-5 border border-slate-200 text-center animate-in fade-in zoom-in-95 duration-150">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-50 mb-3">
-              <Trash2 size={18} className="text-red-600" />
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex justify-center items-center z-50">
+          <div className="bg-slate-800 w-full max-w-xs rounded-lg shadow-xl p-5 border border-slate-700 text-center animate-in fade-in zoom-in-95 duration-150 text-slate-100">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-950/50 mb-3 text-red-400">
+              <Trash2 size={18} />
             </div>
-            <h3 className="text-base font-semibold text-slate-900 mb-1">Delete Task?</h3>
-            <p className="text-xs text-slate-500 mb-4">
+            <h3 className="text-base font-semibold text-slate-100 mb-1">Delete Task?</h3>
+            <p className="text-xs text-slate-400 mb-4">
               Are you sure you want to permanently remove <strong>TASK-{taskToDelete.taskId}</strong>?
             </p>
             <div className="flex gap-2 justify-center">
-              <button type="button" onClick={() => setTaskToDelete(null)} className="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors cursor-pointer">Cancel</button>
+              <button type="button" onClick={() => setTaskToDelete(null)} className="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors cursor-pointer">Cancel</button>
               <button type="button" onClick={handleDeleteWidgetTask} className="px-3 py-1.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded shadow-sm transition-colors cursor-pointer">Delete</button>
             </div>
           </div>

@@ -3,7 +3,12 @@
 /* Markdown Container Utilities */
 .markdown-container strong {
   font-weight: 700 !important;
-  color: #0f172a !important; /* Slate 900 */
+  color: #0f172a !important;
+}
+
+.dark .markdown-container strong,
+:is(.dark) .markdown-container strong {
+  color: #f8fafc !important;
 }
 
 .markdown-container blockquote {
@@ -11,6 +16,12 @@
   padding-left: 0.75rem !important;
   font-style: italic !important;
   color: #475569 !important;
+}
+
+.dark .markdown-container blockquote,
+:is(.dark) .markdown-container blockquote {
+  border-left-color: #475569 !important;
+  color: #94a3b8 !important;
 }
 
 .markdown-container ul {
@@ -29,19 +40,129 @@
   margin-bottom: 0.5rem;
 }
 
-.comment-editor-wrapper .EasyMDEContainer {
-  width: 100%;
+/* ==========================================================================
+   EasyMDE / SimpleMDE Core Base Overrides
+   ========================================================================== */
+
+.EasyMDEContainer {
+  width: 100% !important;
 }
-.comment-editor-wrapper .editor-toolbar {
-  border-color: #e2e8f0 !important;
-  border-top-left-radius: 0.375rem;
-  border-top-right-radius: 0.375rem;
-  background-color: #f8fafc;
+
+/* 🟢 LIGHT MODE DEFAULT STYLES */
+html:not(.dark) .EasyMDEContainer .editor-toolbar {
+  border-color: #cbd5e1 !important;
+  border-top-left-radius: 0.375rem !important;
+  border-top-right-radius: 0.375rem !important;
+  background-color: #f8fafc !important;
 }
-.comment-editor-wrapper .CodeMirror {
-  border-color: #e2e8f0 !important;
-  border-bottom-left-radius: 0.375rem;
-  border-bottom-right-radius: 0.375rem;
-  font-size: 12px;
-  color: #334155;
+
+html:not(.dark) .EasyMDEContainer .CodeMirror,
+html:not(.dark) .EasyMDEContainer .CodeMirror-scroll {
+  border-color: #cbd5e1 !important;
+  border-bottom-left-radius: 0.375rem !important;
+  border-bottom-right-radius: 0.375rem !important;
+  font-size: 13px !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
+
+/* 🌙 DARK MODE CODEMIRROR CANVAS & TOOLBAR */
+.dark .EasyMDEContainer .CodeMirror,
+.dark .EasyMDEContainer .CodeMirror-scroll,
+.dark .EasyMDEContainer .CodeMirror-sizer,
+.dark .EasyMDEContainer .CodeMirror-gutter,
+.dark .EasyMDEContainer .CodeMirror-gutters,
+.dark .EasyMDEContainer .CodeMirror-lines,
+.dark .EasyMDEContainer .CodeMirror-line,
+.dark .EasyMDEContainer .CodeMirror pre.CodeMirror-line,
+.dark .CodeMirror,
+.dark .CodeMirror-scroll,
+.dark .CodeMirror-lines,
+html.dark .CodeMirror,
+html.dark .CodeMirror-scroll,
+html.dark .CodeMirror-lines {
+  background-color: #0f172a !important; /* slate-900 background */
+  background: #0f172a !important;
+  color: #f8fafc !important;             /* slate-50 text */
+  border-color: #334155 !important;     /* slate-700 border */
+  border-bottom-left-radius: 0.375rem !important;
+  border-bottom-right-radius: 0.375rem !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.dark .EasyMDEContainer .editor-toolbar,
+.dark .editor-toolbar,
+html.dark .editor-toolbar,
+body.dark .editor-toolbar {
+  background-color: #1e293b !important; /* slate-800 header */
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  border-top-left-radius: 0.375rem !important;
+  border-top-right-radius: 0.375rem !important;
+  opacity: 1 !important;
+}
+
+/* 🎨 TOOLBAR ICON BUTTON STYLING */
+.EasyMDEContainer .editor-toolbar button {
+  border-radius: 4px !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+/* Dark Mode Toolbar Icons */
+.dark .EasyMDEContainer .editor-toolbar button,
+.dark .EasyMDEContainer .editor-toolbar button i,
+.dark .EasyMDEContainer .editor-toolbar button::before,
+html.dark .editor-toolbar button,
+html.dark .editor-toolbar button * {
+  color: #94a3b8 !important; /* Slate-400 visible icons */
+  opacity: 1 !important;
+}
+
+.dark .EasyMDEContainer .editor-toolbar button:hover,
+.dark .EasyMDEContainer .editor-toolbar button:hover i,
+html.dark .editor-toolbar button:hover {
+  background-color: #334155 !important; /* Slate-700 hover */
+  color: #38bdf8 !important;             /* Sky Blue icon hover */
+}
+
+.dark .EasyMDEContainer .editor-toolbar button.active,
+html.dark .EasyMDEContainer .editor-toolbar button.active {
+  background-color: #0f172a !important;
+  color: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+}
+
+/* Toolbar Divider Lines */
+.dark .EasyMDEContainer .editor-toolbar i.separator,
+html.dark .editor-toolbar i.separator,
+body.dark .editor-toolbar i.separator {
+  border-left: 1px solid #334155 !important;
+  border-right: none !important;
+  margin: 0 6px !important;
+}
+
+/* Caret Cursor & Text Selection */
+.dark .CodeMirror-cursor,
+html.dark .CodeMirror-cursor,
+body.dark .CodeMirror-cursor {
+  border-left: 2px solid #38bdf8 !important;
+}
+
+.dark .CodeMirror-selected,
+html.dark .CodeMirror-selected {
+  background-color: #334155 !important;
+}
+
+.dark .CodeMirror-placeholder,
+html.dark .CodeMirror-placeholder,
+body.dark .CodeMirror-placeholder {
+  color: #64748b !important;
+}
+
+/* Syntax Highlighting Inside Editor */
+.dark .CodeMirror .cm-header { color: #38bdf8 !important; font-weight: 700; }
+.dark .CodeMirror .cm-strong { color: #f8fafc !important; font-weight: 700; }
+.dark .CodeMirror .cm-em     { color: #cbd5e1 !important; font-style: italic; }
+.dark .CodeMirror .cm-quote  { color: #94a3b8 !important; }
+.dark .CodeMirror .cm-link   { color: #60a5fa !important; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
+import { X, Plus, FolderKanban } from 'lucide-react';
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -12,6 +13,12 @@ export default function Projects() {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Permanently lock page into dark mode on mount
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    document.body.classList.add('dark');
+  }, []);
 
   const getAuthHeaders = () => {
     return {
@@ -79,26 +86,30 @@ export default function Projects() {
   };
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center text-slate-500">Loading workspaces...</div>;
+    return <div className="flex h-screen items-center justify-center bg-slate-900 text-slate-400 text-xs">Loading workspaces...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen w-screen bg-slate-900 p-8 font-sans text-slate-100">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Your Workspaces</h1>
+          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+            <FolderKanban className="text-blue-400" size={24} />
+            <span>Your Workspaces</span>
+          </h1>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition-colors text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            + Create Project
+            <Plus size={16} />
+            <span>Create Project</span>
           </button>
         </div>
 
         {projects.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-sm">
-            <h2 className="text-xl font-bold text-slate-800 mb-2">No projects yet</h2>
-            <p className="text-slate-500 mb-6">Create your first project workspace to start organizing tasks.</p>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center shadow-sm">
+            <h2 className="text-xl font-bold text-slate-200 mb-2">No projects yet</h2>
+            <p className="text-slate-400 text-xs mb-6">Create your first project workspace to start organizing tasks.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -106,10 +117,10 @@ export default function Projects() {
               <div 
                 key={project.id || project.projectId} 
                 onClick={() => navigate(`/dashboard/${project.id || project.projectId}`)}
-                className="bg-white border border-slate-200 rounded-lg p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+                className="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:shadow-md hover:border-blue-500 transition-all cursor-pointer group"
               >
-                <h3 className="font-bold text-slate-900 text-lg mb-1">{project.projectName}</h3>
-                <p className="text-slate-500 text-sm truncate">{project.projectDescription}</p>
+                <h3 className="font-bold text-slate-100 text-lg mb-1 group-hover:text-blue-400 transition-colors">{project.projectName}</h3>
+                <p className="text-slate-400 text-xs truncate">{project.projectDescription}</p>
               </div>
             ))}
           </div>
@@ -117,33 +128,37 @@ export default function Projects() {
 
         {/* CREATE MODAL */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">Create New Project</h2>
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50">
+            <div className="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full max-w-md p-6 text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-700 mb-4">
+                <h2 className="text-base font-semibold text-slate-100">Create New Project</h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-200 cursor-pointer"><X size={18} /></button>
+              </div>
               <form onSubmit={handleCreateProject}>
                 <div className="mb-4">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Project Name</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Project Name</label>
                   <input 
                     type="text"
                     required
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                     placeholder="e.g. Backend Engine"
-                    className="w-full border border-slate-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-100 placeholder-slate-600"
                   />
                 </div>
                 <div className="mb-6">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Description</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Description</label>
                   <textarea 
                     value={newProjectDesc}
                     onChange={(e) => setNewProjectDesc(e.target.value)}
                     placeholder="What is this project about?"
-                    className="w-full border border-slate-300 rounded p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    rows="3"
+                    className="w-full bg-slate-900 border border-slate-700 rounded p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-100 placeholder-slate-600 resize-none"
                   />
                 </div>
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium">Cancel</button>
-                  <button type="submit" disabled={isCreating} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium disabled:bg-blue-400">
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-700">
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="px-3.5 py-2 text-xs text-slate-300 hover:bg-slate-700 rounded font-medium cursor-pointer transition-colors">Cancel</button>
+                  <button type="submit" disabled={isCreating} className="px-3.5 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded font-medium disabled:bg-blue-800 disabled:text-slate-400 cursor-pointer shadow-sm">
                     {isCreating ? 'Creating...' : 'Create'}
                   </button>
                 </div>
