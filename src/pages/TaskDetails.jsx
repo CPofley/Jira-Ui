@@ -29,7 +29,9 @@ import {
   Equal,
   AlertCircle,
   Lock,
-  User
+  User,
+  GitPullRequest,
+  RefreshCw
 } from 'lucide-react';
 
 const PRIORITY_CONFIG = {
@@ -99,7 +101,7 @@ const TYPE_ICONS = {
   DEFAULT: <CheckSquare size={12} className="text-white mr-1.5" />
 };
 
-// 👤 Helper Component: Dynamic User Profile Avatar (Supports "username|avatarUrl" delimited format)
+// 👤 Helper Component: Dynamic User Profile Avatar
 const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-6 h-6" }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -111,7 +113,6 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-6 h-6" }) => {
     );
   }
 
-  // Parse "Name|Url" delimiter
   const parts = rawString.split('|');
   const cleanName = parts[0] ? parts[0].trim() : '';
   const parsedAvatarUrl = parts[1] && parts[1].trim() !== '' && parts[1] !== 'null' && parts[1] !== 'undefined'
@@ -211,6 +212,10 @@ export default function TaskDetailsPage() {
   const [showSubTaskInput, setShowSubTaskInput] = useState(false);
   const [subTaskTitle, setSubTaskTitle] = useState('');
   const [creatingSubTask, setCreatingSubTask] = useState(false);
+
+  // Pull Requests async state
+  const [pullRequests, setPullRequests] = useState([]);
+  const [loadingPrs, setLoadingPrs] = useState(false);
 
   // Dynamic Interactive Dropdown States
   const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
@@ -357,16 +362,44 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // 📡 WebSocket Initialization for Real-Time Lock & Update Sync
+  // Helper function to manually fetch PRs via REST/WS
+  const fetchGithubPRs = async () => {
+    setLoadingPrs(true);
+    if (stompClientRef.current?.connected) {
+      stompClientRef.current.publish({
+        destination: `/app/tasks/${taskId}/fetch-prs`,
+        body: JSON.stringify({})
+      });
+    } else {
+      // Fallback REST call
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/github/pr/${taskId}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPullRequests(data || []);
+        }
+      } catch (err) {
+        console.error("Error fetching PRs manually:", err);
+      } finally {
+        setLoadingPrs(false);
+      }
+    }
+  };
+
+  // 📡 WebSocket Initialization for Real-Time Lock, Update Sync, and GitHub PR Fetching
   useEffect(() => {
     if (!taskId) return;
 
+    setLoadingPrs(true);
     const baseWsUrl = API_BASE_URL.replace('/api', '');
     const socket = new SockJS(`${baseWsUrl}/ws`);
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
       onConnect: () => {
+        // Subscribe to real-time events for this taskId
         client.subscribe(`/topic/tasks/${taskId}`, (message) => {
           const payload = JSON.parse(message.body);
 
@@ -398,7 +431,16 @@ export default function TaskDetailsPage() {
               ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
               ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status })
             }));
+          } else if (payload.type === 'PR_FETCH_COMPLETE') {
+            setPullRequests(payload.pullRequests || []);
+            setLoadingPrs(false);
           }
+        });
+
+        // Trigger Async PR Fetching over WebSocket
+        client.publish({
+          destination: `/app/tasks/${taskId}/fetch-prs`,
+          body: JSON.stringify({})
         });
       }
     });
@@ -467,7 +509,6 @@ export default function TaskDetailsPage() {
   };
 
   const commitFieldUpdate = async (fieldName) => {
-    // Send only clean username to backend API
     const rawValue = editingValues[fieldName];
     const cleanValue = typeof rawValue === 'string' ? rawValue.split('|')[0] : rawValue;
     setSavingField(fieldName);
@@ -971,7 +1012,7 @@ export default function TaskDetailsPage() {
                 onClick={() => {
                   const selection = window.getSelection();
                   if (selection && selection.toString().length > 0) {
-                    return; // Don't trigger edit mode if user is selecting text
+                    return;
                   }
                   if (!lockedFields.description) {
                     setIsEditingDescription(true);
@@ -1222,7 +1263,7 @@ export default function TaskDetailsPage() {
                             onClick={() => {
                               const selection = window.getSelection();
                               if (selection && selection.toString().length > 0) {
-                                return; // Don't trigger edit mode if user is selecting text
+                                return;
                               }
                               startEditingComment(comment);
                             }}
@@ -1397,6 +1438,76 @@ export default function TaskDetailsPage() {
                 </button>
               </div>
             </form>
+          </div>
+
+          <hr className="border-slate-100" />
+
+          {/* DEVELOPMENT / GITHUB PULL REQUESTS BADGE PANEL */}
+          <div className="pt-1">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <GitPullRequest size={14} className="text-slate-600" />
+                <span>Development</span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                {loadingPrs && <span className="text-[10px] text-blue-500 animate-pulse">fetching...</span>}
+                <button
+                  type="button"
+                  onClick={fetchGithubPRs}
+                  disabled={loadingPrs}
+                  className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                  title="Refresh Pull Requests"
+                >
+                  <RefreshCw size={12} className={loadingPrs ? 'animate-spin text-blue-600' : ''} />
+                </button>
+              </div>
+            </div>
+
+            {pullRequests && pullRequests.length > 0 ? (
+              <div className="space-y-2">
+                {pullRequests.map((pr) => {
+                  const isMerged = pr.isMerged;
+                  const isOpen = pr.state === 'open';
+
+                  return (
+                    <a
+                      key={pr.id}
+                      href={pr.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between p-2 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-slate-50 transition-all text-xs group cursor-pointer shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <GitPullRequest 
+                          size={14} 
+                          className={
+                            isMerged ? 'text-purple-600 flex-shrink-0' :
+                            isOpen ? 'text-green-600 flex-shrink-0' : 'text-red-500 flex-shrink-0'
+                          } 
+                        />
+                        <div className="truncate">
+                          <p className="font-bold text-slate-800 group-hover:text-blue-600 truncate text-[11px]">
+                            #{pr.number}: {pr.title}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border flex-shrink-0 ${
+                        isMerged ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        isOpen ? 'bg-green-50 text-green-700 border-green-200' :
+                        'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {isMerged ? 'MERGED' : isOpen ? 'OPEN' : 'CLOSED'}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[11px] text-slate-400 italic bg-slate-50 p-2.5 rounded border border-slate-150">
+                {loadingPrs ? 'Querying GitHub API...' : `No PRs linked for branch TASK-${taskId}-...`}
+              </div>
+            )}
           </div>
 
           <hr className="border-slate-100" />
