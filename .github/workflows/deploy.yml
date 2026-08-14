@@ -20,4 +20,11 @@ jobs:
             git pull origin main
             npm install
             npm run build
-            pm2 restart jira-ui
+            
+            # Restart or Start Application via PM2
+            if pm2 describe jira-ui > /dev/null 2>&1; then
+              pm2 restart jira-ui
+            else
+              pm2 start npm --name "jira-ui" -- start
+            fi
+            pm2 save
