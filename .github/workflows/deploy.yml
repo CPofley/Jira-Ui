@@ -21,10 +21,10 @@ jobs:
             npm install
             npm run build
             
-            # Restart or Start Application via PM2
+            # Restart or Start Application via PM2 using serve
             if pm2 describe jira-ui > /dev/null 2>&1; then
               pm2 restart jira-ui
             else
-              pm2 start npm --name "jira-ui" -- start
+              pm2 start serve --name "jira-ui" -- -s dist -l 3000
             fi
             pm2 save
