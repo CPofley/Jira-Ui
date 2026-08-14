@@ -24,7 +24,9 @@ import {
   ChevronDown, 
   User, 
   Columns, 
-  Check
+  Check,
+  Filter,
+  RotateCcw
 } from 'lucide-react'; 
 
 const DEFAULT_WIDGETS = [
@@ -148,13 +150,24 @@ export default function JiraDashboard() {
   const [syncingTaskId, setSyncingTaskId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Advanced Column Filter States
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [columnFilters, setColumnFilters] = useState({
+    id: '',
+    title: '',
+    taskType: 'ALL',
+    taskStatus: 'ALL',
+    priority: 'ALL',
+    assignee: '',
+    reporter: ''
+  });
+
   const dashboardUserRef = useRef(null);
   const inlineMenuRef = useRef(null);
   const columnMenuRef = useRef(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
-  // User selectable optional columns (id, title, status, actions are permanent)
   const [visibleOptionalCols, setVisibleOptionalCols] = useState(() => {
     const saved = localStorage.getItem('jira_table_visible_columns');
     if (saved) {
@@ -164,7 +177,7 @@ export default function JiraDashboard() {
         console.error(e);
       }
     }
-    return []; // By default no optional columns, showing id, title, status, actions
+    return [];
   });
 
   const toggleOptionalColumn = (colKey) => {
@@ -446,23 +459,53 @@ export default function JiraDashboard() {
     setSortConfig({ key, direction });
   };
 
+  // Comprehensive Filtering Logic across all columns + global search
   const filteredTasks = useMemo(() => {
     if (!allTasks) return [];
-    if (!searchQuery.trim()) return allTasks;
 
-    const query = searchQuery.toLowerCase().trim();
     return allTasks.filter(task => {
-      const idMatch = String(task.id).includes(query);
-      const titleMatch = (task.title || '').toLowerCase().includes(query);
-      const typeMatch = (task.taskType || '').toLowerCase().includes(query);
-      const statusMatch = (task.taskStatus || '').toLowerCase().replace('_', ' ').includes(query);
-      const priorityMatch = (task.priority || '').toLowerCase().includes(query);
-      const assigneeMatch = (task.assignee || '').toLowerCase().includes(query);
-      const reporterMatch = (task.reporter || '').toLowerCase().includes(query);
+      // 1. Global Search Filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const idMatch = String(task.id).includes(query);
+        const titleMatch = (task.title || '').toLowerCase().includes(query);
+        const typeMatch = (task.taskType || '').toLowerCase().includes(query);
+        const statusMatch = (task.taskStatus || '').toLowerCase().replace('_', ' ').includes(query);
+        const priorityMatch = (task.priority || '').toLowerCase().includes(query);
+        const assigneeMatch = (task.assignee || '').toLowerCase().includes(query);
+        const reporterMatch = (task.reporter || '').toLowerCase().includes(query);
 
-      return idMatch || titleMatch || typeMatch || statusMatch || priorityMatch || assigneeMatch || reporterMatch;
+        if (!(idMatch || titleMatch || typeMatch || statusMatch || priorityMatch || assigneeMatch || reporterMatch)) {
+          return false;
+        }
+      }
+
+      // 2. Advanced Column-Specific Filters
+      if (columnFilters.id.trim() && !String(task.id).toLowerCase().includes(columnFilters.id.toLowerCase().trim())) {
+        return false;
+      }
+      if (columnFilters.title.trim() && !(task.title || '').toLowerCase().includes(columnFilters.title.toLowerCase().trim())) {
+        return false;
+      }
+      if (columnFilters.taskType !== 'ALL' && task.taskType !== columnFilters.taskType) {
+        return false;
+      }
+      if (columnFilters.taskStatus !== 'ALL' && task.taskStatus !== columnFilters.taskStatus) {
+        return false;
+      }
+      if (columnFilters.priority !== 'ALL' && task.priority !== columnFilters.priority) {
+        return false;
+      }
+      if (columnFilters.assignee.trim() && !(task.assignee || '').toLowerCase().includes(columnFilters.assignee.toLowerCase().trim())) {
+        return false;
+      }
+      if (columnFilters.reporter.trim() && !(task.reporter || '').toLowerCase().includes(columnFilters.reporter.toLowerCase().trim())) {
+        return false;
+      }
+
+      return true;
     });
-  }, [allTasks, searchQuery]);
+  }, [allTasks, searchQuery, columnFilters]);
 
   const sortedTasks = useMemo(() => {
     let sortableTasks = [...filteredTasks];
@@ -790,72 +833,92 @@ export default function JiraDashboard() {
               </button>
             </div>
 
-            {/* REAL-TIME SEARCH BAR & COLUMN PICKER */}
-            <div className="flex items-center gap-2 flex-1 justify-end">
-              <div className="relative flex-1 max-w-xs min-w-[160px]">
-                <input
-                  type="text"
-                  placeholder="Search tasks by ID, title..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
-                    title="Clear search"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+            {/* REAL-TIME SEARCH BAR, ADVANCED FILTER TOGGLE & COLUMN PICKER */}
+<div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
+  <div className="relative flex-1 max-w-xs min-w-[160px]">
+    <input
+      type="text"
+      placeholder="Search tasks by ID, title..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
+    />
+    {searchQuery && (
+      <button 
+        onClick={() => setSearchQuery('')}
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+        title="Clear search"
+      >
+        <X size={13} />
+      </button>
+    )}
+  </div>
 
-              {/* COLUMN CHOOSER DROPDOWN */}
-              <div className="relative" ref={columnMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowColumnDropdown(prev => !prev)}
-                  className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg text-xs text-slate-300 hover:text-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                  title="Choose visible columns"
-                >
-                  <Columns size={13} className="text-slate-400" />
-                  <span>Columns</span>
-                  {visibleOptionalCols.length > 0 && (
-                    <span className="bg-blue-600 text-white rounded-full text-[9px] font-bold px-1.5 py-0.2">
-                      +{visibleOptionalCols.length}
-                    </span>
-                  )}
-                  <ChevronDown size={12} className="opacity-60 ml-0.5" />
-                </button>
+  {/* ADVANCED COLUMN FILTER TOGGLE BUTTON */}
+  <button
+    type="button"
+    onClick={() => setShowAdvancedFilters(prev => !prev)}
+    className={`px-2.5 py-1.5 border rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+      showAdvancedFilters 
+        ? 'bg-blue-600/20 border-blue-500 text-blue-400' 
+        : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600 hover:text-slate-100'
+    }`}
+    title="Filter by any column data"
+  >
+    <Filter size={13} />
+    <span>Filters</span>
+    {Object.values(columnFilters).some(val => val !== '' && val !== 'ALL') && (
+      <span className="bg-blue-600 text-white rounded-full text-[9px] font-bold px-1.5 py-0.2">
+        Active
+      </span>
+    )}
+  </button>
 
-                {showColumnDropdown && (
-                  <div className="absolute right-0 top-9 w-44 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-100 flex flex-col gap-1">
-                    <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 mb-1">
-                      Toggle Columns
-                    </div>
-                    {AVAILABLE_OPTIONAL_COLUMNS.map(col => {
-                      const active = isColVisible(col.key);
-                      return (
-                        <button
-                          key={col.key}
-                          type="button"
-                          onClick={() => toggleOptionalColumn(col.key)}
-                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs text-slate-200 hover:bg-slate-700/70 transition-colors cursor-pointer text-left"
-                        >
-                          <span>{col.label}</span>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                            active ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-600 bg-slate-900'
-                          }`}>
-                            {active && <Check size={10} strokeWidth={3} />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+  {/* COLUMN CHOOSER DROPDOWN */}
+  <div className="relative" ref={columnMenuRef}>
+    <button
+      type="button"
+      onClick={() => setShowColumnDropdown(prev => !prev)}
+      className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg text-xs text-slate-300 hover:text-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+      title="Choose visible columns"
+    >
+      <Columns size={13} className="text-slate-400" />
+      <span>Columns</span>
+      {visibleOptionalCols.length > 0 && (
+        <span className="bg-blue-600 text-white rounded-full text-[9px] font-bold px-1.5 py-0.2">
+          +{visibleOptionalCols.length}
+        </span>
+      )}
+      <ChevronDown size={12} className="opacity-60 ml-0.5" />
+    </button>
+
+    {showColumnDropdown && (
+      <div className="absolute right-0 top-9 w-44 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-100 flex flex-col gap-1">
+        <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 mb-1">
+          Toggle Columns
+        </div>
+        {AVAILABLE_OPTIONAL_COLUMNS.map(col => {
+          const active = isColVisible(col.key);
+          return (
+            <button
+              key={col.key}
+              type="button"
+              onClick={() => toggleOptionalColumn(col.key)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs text-slate-200 hover:bg-slate-700/70 transition-colors cursor-pointer text-left"
+            >
+              <span>{col.label}</span>
+              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                active ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-600 bg-slate-900'
+              }`}>
+                {active && <Check size={10} strokeWidth={3} />}
               </div>
-            </div>
+            </button>
+          );
+        })}
+      </div>
+    )}
+  </div>
+</div>
             
             <div className="flex items-center gap-2">
               <button 
@@ -875,6 +938,105 @@ export default function JiraDashboard() {
               </button>
             </div>
           </div>
+
+          {/* ADVANCED COLUMN FILTER BAR */}
+          {showAdvancedFilters && (
+            <div className="bg-slate-900/90 p-3 border-b border-slate-700 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 animate-in slide-in-from-top-2 duration-150">
+              {/* Filter ID */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Key / ID</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 54"
+                  value={columnFilters.id}
+                  onChange={(e) => setColumnFilters({...columnFilters, id: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Filter Title */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Title</label>
+                <input
+                  type="text"
+                  placeholder="Filter title..."
+                  value={columnFilters.title}
+                  onChange={(e) => setColumnFilters({...columnFilters, title: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Filter Type */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Type</label>
+                <select
+                  value={columnFilters.taskType}
+                  onChange={(e) => setColumnFilters({...columnFilters, taskType: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                >
+                  <option value="ALL">All Types</option>
+                  {(metadata.taskTypes || []).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter Status */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Status</label>
+                <select
+                  value={columnFilters.taskStatus}
+                  onChange={(e) => setColumnFilters({...columnFilters, taskStatus: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                >
+                  <option value="ALL">All Statuses</option>
+                  {(metadata.statuses || []).map(s => (
+                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter Priority */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Priority</label>
+                <select
+                  value={columnFilters.priority}
+                  onChange={(e) => setColumnFilters({...columnFilters, priority: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                >
+                  <option value="ALL">All Priorities</option>
+                  {(metadata.priorities || []).map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter Assignee */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Assignee</label>
+                <input
+                  type="text"
+                  placeholder="Assignee..."
+                  value={columnFilters.assignee}
+                  onChange={(e) => setColumnFilters({...columnFilters, assignee: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Filter Action / Reset */}
+              <div className="flex items-end gap-1">
+                <button
+                  type="button"
+                  onClick={() => setColumnFilters({ id: '', title: '', taskType: 'ALL', taskStatus: 'ALL', priority: 'ALL', assignee: '', reporter: '' })}
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded px-2 py-1.5 text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                  title="Reset column filters"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto w-full">
             {loadingTable ? (
@@ -1025,7 +1187,7 @@ export default function JiraDashboard() {
                   ) : (
                     <tr>
                       <td colSpan={4 + visibleOptionalCols.length} className="py-12 text-center text-slate-500 italic bg-slate-900/30">
-                        No active workspace logs detected matching your search criteria.
+                        No active workspace logs detected matching your filter criteria.
                       </td>
                     </tr>
                   )}
