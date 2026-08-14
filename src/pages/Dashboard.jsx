@@ -13,21 +13,30 @@ import {
   CheckSquare, 
   Zap, 
   ChevronLeft, 
-  ChevronRight,
-  ListTodo,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  LogOut,
-  RefreshCw,
-  FolderSync,
-  ChevronDown,
-  User
+  ChevronRight, 
+  ListTodo, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown, 
+  LogOut, 
+  RefreshCw, 
+  FolderSync, 
+  ChevronDown, 
+  User, 
+  Columns, 
+  Check
 } from 'lucide-react'; 
 
 const DEFAULT_WIDGETS = [
   { id: 'w-todo', title: 'To Do Lane', type: 'STATUS', value: 'TO_DO', page: 0, hasMore: true, items: [] },
   { id: 'w-inprogress', title: 'In Progress Lane', type: 'STATUS', value: 'IN_PROGRESS', page: 0, hasMore: true, items: [] }
+];
+
+const AVAILABLE_OPTIONAL_COLUMNS = [
+  { key: 'taskType', label: 'Type' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'assignee', label: 'Assignee' },
+  { key: 'reporter', label: 'Reporter' }
 ];
 
 const STATUS_STYLES = {
@@ -71,13 +80,12 @@ const TABLE_TYPE_ICONS = {
   EPIC: <Zap size={12} className="fill-current text-purple-400" />
 };
 
-// 👤 Helper Component: Parses "Name|AvatarUrl" format to render User Profile Avatar & Clean Name
 const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
   const [imgError, setImgError] = useState(false);
 
   if (!rawString || rawString.trim() === '' || rawString.toLowerCase() === 'unassigned') {
     return (
-      <div className="flex items-center gap-1.5 text-slate-500 italic">
+      <div className="flex items-center gap-1.5 text-slate-500 italic text-[11px]">
         <div className={`${size} rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400`}>
           <User size={10} />
         </div>
@@ -88,7 +96,7 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
 
   if (rawString.toLowerCase() === 'system') {
     return (
-      <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+      <div className="flex items-center gap-1.5 text-slate-400 font-medium text-[11px]">
         <div className={`${size} rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-[9px] flex-shrink-0 border border-slate-700`}>
           S
         </div>
@@ -122,7 +130,7 @@ const UserAvatar = ({ rawString, fallbackAvatarUrl, size = "w-5 h-5" }) => {
           {initial}
         </div>
       )}
-      <span className="truncate font-medium text-slate-200 capitalize">{cleanName}</span>
+      <span className="truncate font-medium text-slate-200 capitalize text-[11px]">{cleanName}</span>
     </div>
   );
 };
@@ -142,7 +150,32 @@ export default function JiraDashboard() {
   
   const dashboardUserRef = useRef(null);
   const inlineMenuRef = useRef(null);
+  const columnMenuRef = useRef(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+  // User selectable optional columns (id, title, status, actions are permanent)
+  const [visibleOptionalCols, setVisibleOptionalCols] = useState(() => {
+    const saved = localStorage.getItem('jira_table_visible_columns');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return []; // By default no optional columns, showing id, title, status, actions
+  });
+
+  const toggleOptionalColumn = (colKey) => {
+    setVisibleOptionalCols(prev => {
+      const next = prev.includes(colKey) ? prev.filter(k => k !== colKey) : [...prev, colKey];
+      localStorage.setItem('jira_table_visible_columns', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const isColVisible = (colKey) => visibleOptionalCols.includes(colKey);
 
   const handleLogout = () => {
     localStorage.removeItem('jira_token');
@@ -379,6 +412,9 @@ export default function JiraDashboard() {
       if (dashboardUserRef.current && !dashboardUserRef.current.contains(event.target)) {
         setShowUserDropdown(false);
       }
+      if (columnMenuRef.current && !columnMenuRef.current.contains(event.target)) {
+        setShowColumnDropdown(false);
+      }
       if (inlineMenuRef.current && !inlineMenuRef.current.contains(event.target)) {
         setActiveInlineMenu(null);
       }
@@ -552,7 +588,7 @@ export default function JiraDashboard() {
   return (
     <div className="flex h-screen w-screen bg-slate-900 font-sans text-slate-100 text-left overflow-hidden">
       {/* Sidebar Navigation */}
-      <div className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative">
+      <div className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative shrink-0">
         
         <div 
           ref={dashboardUserRef}
@@ -560,7 +596,7 @@ export default function JiraDashboard() {
           className="flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-700 hover:bg-slate-700/50 hover:shadow-xs rounded-xl cursor-pointer transition-all group/header relative select-none"
           title="User Account Menu"
         >
-          <div className="relative h-9 w-9 flex-shrink-0">
+          <div className="relative h-9 w-9 shrink-0">
             {avatarUrl && avatarUrl !== 'null' && avatarUrl !== 'undefined' && avatarUrl.trim() !== '' ? (
               <img 
                 src={avatarUrl} 
@@ -651,7 +687,7 @@ export default function JiraDashboard() {
       </div>
 
       {/* Main Board Area */}
-      <div className="flex-1 p-8 overflow-y-auto space-y-12 bg-slate-900">
+      <div className="flex-1 min-w-0 p-6 md:p-8 overflow-y-auto space-y-12 bg-slate-900">
         <div>
           <h1 className="text-2xl font-semibold text-slate-100 mb-6">Custom Monitoring Workspace</h1>
           
@@ -739,8 +775,8 @@ export default function JiraDashboard() {
         </div>
 
         {/* CORE SECTION 2: PAGINATED TRACKING REGISTRY TABLE */}
-        <div id="all-issues-table" className="w-full bg-slate-800 rounded-xl border border-slate-700 shadow-sm font-sans text-xs text-slate-200 pt-1 relative min-h-[500px]">
-          <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div id="all-issues-table" className="w-full bg-slate-800 rounded-xl border border-slate-700 shadow-sm font-sans text-xs text-slate-200 pt-1 relative min-h-[500px] overflow-hidden">
+          <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <ListTodo size={16} className="text-blue-400" />
               <h3 className="font-bold text-slate-100 text-sm tracking-wide">All Workspace Issues</h3>
@@ -754,24 +790,71 @@ export default function JiraDashboard() {
               </button>
             </div>
 
-            {/* REAL-TIME SEARCH BAR INPUT */}
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                placeholder="Search tasks by ID, title, assignee..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
-                  title="Clear search"
+            {/* REAL-TIME SEARCH BAR & COLUMN PICKER */}
+            <div className="flex items-center gap-2 flex-1 justify-end">
+              <div className="relative flex-1 max-w-xs min-w-[160px]">
+                <input
+                  type="text"
+                  placeholder="Search tasks by ID, title..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* COLUMN CHOOSER DROPDOWN */}
+              <div className="relative" ref={columnMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowColumnDropdown(prev => !prev)}
+                  className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg text-xs text-slate-300 hover:text-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  title="Choose visible columns"
                 >
-                  <X size={13} />
+                  <Columns size={13} className="text-slate-400" />
+                  <span>Columns</span>
+                  {visibleOptionalCols.length > 0 && (
+                    <span className="bg-blue-600 text-white rounded-full text-[9px] font-bold px-1.5 py-0.2">
+                      +{visibleOptionalCols.length}
+                    </span>
+                  )}
+                  <ChevronDown size={12} className="opacity-60 ml-0.5" />
                 </button>
-              )}
+
+                {showColumnDropdown && (
+                  <div className="absolute right-0 top-9 w-44 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-100 flex flex-col gap-1">
+                    <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 mb-1">
+                      Toggle Columns
+                    </div>
+                    {AVAILABLE_OPTIONAL_COLUMNS.map(col => {
+                      const active = isColVisible(col.key);
+                      return (
+                        <button
+                          key={col.key}
+                          type="button"
+                          onClick={() => toggleOptionalColumn(col.key)}
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs text-slate-200 hover:bg-slate-700/70 transition-colors cursor-pointer text-left"
+                        >
+                          <span>{col.label}</span>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                            active ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-600 bg-slate-900'
+                          }`}>
+                            {active && <Check size={10} strokeWidth={3} />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
@@ -797,31 +880,51 @@ export default function JiraDashboard() {
             {loadingTable ? (
               <div className="p-12 text-slate-400 italic text-center">Refreshing workspace data index...</div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse table-auto">
                 <thead>
                   <tr className="border-b border-slate-700 bg-slate-900/50 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    <th onClick={() => handleSort('id')} className="py-3 px-4 w-24 cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                    <th onClick={() => handleSort('id')} className="py-3 px-3.5 w-24 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Key / ID {renderSortIcon('id')}</div>
                     </th>
-                    <th onClick={() => handleSort('title')} className="py-3 px-4 cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                    <th onClick={() => handleSort('title')} className="py-3 px-3.5 min-w-[200px] cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Summary Title {renderSortIcon('title')}</div>
                     </th>
-                    <th onClick={() => handleSort('taskType')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
-                      <div className="flex items-center">Type {renderSortIcon('taskType')}</div>
-                    </th>
-                    <th onClick={() => handleSort('taskStatus')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
+
+                    {/* OPTIONAL TYPE COLUMN */}
+                    {isColVisible('taskType') && (
+                      <th onClick={() => handleSort('taskType')} className="py-3 px-3.5 w-28 cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                        <div className="flex items-center">Type {renderSortIcon('taskType')}</div>
+                      </th>
+                    )}
+
+                    {/* DEFAULT STATUS COLUMN */}
+                    <th onClick={() => handleSort('taskStatus')} className="py-3 px-3.5 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Status {renderSortIcon('taskStatus')}</div>
                     </th>
-                    <th onClick={() => handleSort('priority')} className="py-3 px-4 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
-                      <div className="flex items-center">Priority {renderSortIcon('priority')}</div>
-                    </th>
-                    <th onClick={() => handleSort('assignee')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
-                      <div className="flex items-center">Assignee {renderSortIcon('assignee')}</div>
-                    </th>
-                    <th onClick={() => handleSort('reporter')} className="py-3 px-4 w-36 cursor-pointer hover:bg-slate-700 transition-colors select-none">
-                      <div className="flex items-center">Reporter {renderSortIcon('reporter')}</div>
-                    </th>
-                    <th className="py-3 px-4 w-16 text-center select-none">Actions</th>
+
+                    {/* OPTIONAL PRIORITY COLUMN */}
+                    {isColVisible('priority') && (
+                      <th onClick={() => handleSort('priority')} className="py-3 px-3.5 w-28 cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                        <div className="flex items-center">Priority {renderSortIcon('priority')}</div>
+                      </th>
+                    )}
+
+                    {/* OPTIONAL ASSIGNEE COLUMN */}
+                    {isColVisible('assignee') && (
+                      <th onClick={() => handleSort('assignee')} className="py-3 px-3.5 min-w-[130px] cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                        <div className="flex items-center">Assignee {renderSortIcon('assignee')}</div>
+                      </th>
+                    )}
+
+                    {/* OPTIONAL REPORTER COLUMN */}
+                    {isColVisible('reporter') && (
+                      <th onClick={() => handleSort('reporter')} className="py-3 px-3.5 min-w-[130px] cursor-pointer hover:bg-slate-700 transition-colors select-none">
+                        <div className="flex items-center">Reporter {renderSortIcon('reporter')}</div>
+                      </th>
+                    )}
+
+                    {/* DEFAULT ACTIONS COLUMN */}
+                    <th className="py-3 px-3.5 w-16 text-center select-none">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
@@ -832,31 +935,33 @@ export default function JiraDashboard() {
                         onClick={() => navigate(`/tasks/details?taskId=${task.id}`)}
                         className="hover:bg-slate-700/50 cursor-pointer transition-colors group"
                       >
-                        <td className="py-3 px-4 font-semibold text-blue-400 group-hover:underline whitespace-nowrap">
+                        <td className="py-3 px-3.5 font-semibold text-blue-400 group-hover:underline whitespace-nowrap">
                           TASK-{task.id}
                         </td>
-                        <td className="py-3 px-4 font-medium text-slate-100 max-w-xs truncate" title={task.title}>
+                        <td className="py-3 px-3.5 font-medium text-slate-100 max-w-xs truncate" title={task.title}>
                           {task.title}
                         </td>
 
-                        {/* INTERACTIVE DYNAMIC COLUMN 1: TYPE */}
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          {syncingTaskId === task.id ? (
-                            <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
-                          ) : (
-                            <button
-                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'type')}
-                              className={`flex items-center gap-1.5 font-bold text-[10px] uppercase border px-2 py-0.5 rounded-md shadow-2xs cursor-pointer ${COMPACT_TYPE_STYLES[task.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}
-                            >
-                              {TABLE_TYPE_ICONS[task.taskType?.toUpperCase()] || TABLE_TYPE_ICONS.TASK}
-                              <span>{task.taskType?.toLowerCase()}</span>
-                              <ChevronDown size={10} className="text-slate-400" />
-                            </button>
-                          )}
-                        </td>
+                        {/* TYPE CELL */}
+                        {isColVisible('taskType') && (
+                          <td className="py-2.5 px-3.5 whitespace-nowrap">
+                            {syncingTaskId === task.id ? (
+                              <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                            ) : (
+                              <button
+                                onClick={(e) => triggerInlineMenuContainer(e, task.id, 'type')}
+                                className={`flex items-center gap-1.5 font-bold text-[10px] uppercase border px-2 py-0.5 rounded-md shadow-2xs cursor-pointer ${COMPACT_TYPE_STYLES[task.taskType?.toUpperCase()] || COMPACT_TYPE_STYLES.DEFAULT}`}
+                              >
+                                {TABLE_TYPE_ICONS[task.taskType?.toUpperCase()] || TABLE_TYPE_ICONS.TASK}
+                                <span>{task.taskType?.toLowerCase()}</span>
+                                <ChevronDown size={10} className="text-slate-400" />
+                              </button>
+                            )}
+                          </td>
+                        )}
                         
-                        {/* INTERACTIVE DYNAMIC COLUMN 2: STATUS */}
-                        <td className="py-2.5 px-4 whitespace-nowrap">
+                        {/* STATUS CELL */}
+                        <td className="py-2.5 px-3.5 whitespace-nowrap">
                           {syncingTaskId === task.id ? (
                             <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
                           ) : (
@@ -870,32 +975,39 @@ export default function JiraDashboard() {
                           )}
                         </td>
 
-                        {/* INTERACTIVE DYNAMIC COLUMN 3: PRIORITY */}
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          {syncingTaskId === task.id ? (
-                            <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
-                          ) : (
-                            <button
-                              onClick={(e) => triggerInlineMenuContainer(e, task.id, 'priority')}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold uppercase shadow-2xs cursor-pointer ${PRIORITY_STYLES[task.priority?.toUpperCase()] || PRIORITY_STYLES.DEFAULT}`}
-                            >
-                              <span>{task.priority?.toLowerCase()}</span>
-                              <ChevronDown size={10} className="opacity-60" />
-                            </button>
-                          )}
-                        </td>
+                        {/* PRIORITY CELL */}
+                        {isColVisible('priority') && (
+                          <td className="py-2.5 px-3.5 whitespace-nowrap">
+                            {syncingTaskId === task.id ? (
+                              <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
+                            ) : (
+                              <button
+                                onClick={(e) => triggerInlineMenuContainer(e, task.id, 'priority')}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[9px] font-bold uppercase shadow-2xs cursor-pointer ${PRIORITY_STYLES[task.priority?.toUpperCase()] || PRIORITY_STYLES.DEFAULT}`}
+                              >
+                                <span>{task.priority?.toLowerCase()}</span>
+                                <ChevronDown size={10} className="opacity-60" />
+                              </button>
+                            )}
+                          </td>
+                        )}
 
-                        {/* ASSIGNEE COLUMN WITH AVATAR */}
-                        <td className="py-3 px-4 text-slate-300 font-medium whitespace-nowrap">
-                          <UserAvatar rawString={task.assignee} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
-                        </td>
+                        {/* ASSIGNEE CELL */}
+                        {isColVisible('assignee') && (
+                          <td className="py-3 px-3.5 text-slate-300 font-medium whitespace-nowrap">
+                            <UserAvatar rawString={task.assignee} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
+                          </td>
+                        )}
 
-                        {/* REPORTER COLUMN WITH AVATAR */}
-                        <td className="py-3 px-4 text-slate-300 font-medium whitespace-nowrap">
-                          <UserAvatar rawString={task.reporter} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
-                        </td>
+                        {/* REPORTER CELL */}
+                        {isColVisible('reporter') && (
+                          <td className="py-3 px-3.5 text-slate-300 font-medium whitespace-nowrap">
+                            <UserAvatar rawString={task.reporter} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
+                          </td>
+                        )}
 
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {/* ACTIONS CELL */}
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -912,7 +1024,7 @@ export default function JiraDashboard() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="8" className="py-12 text-center text-slate-500 italic bg-slate-900/30">
+                      <td colSpan={4 + visibleOptionalCols.length} className="py-12 text-center text-slate-500 italic bg-slate-900/30">
                         No active workspace logs detected matching your search criteria.
                       </td>
                     </tr>
