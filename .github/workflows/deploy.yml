@@ -11,7 +11,7 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 3.110.217.23.nip.io
+          host: 43.204.130.37.nip.io
           username: ec2-user
           key: ${{secrets.EC2_SSH_KEY}}
           script: |
