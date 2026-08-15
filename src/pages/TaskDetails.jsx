@@ -382,7 +382,6 @@ export default function TaskDetailsPage() {
   useEffect(() => {
     if (!taskId) return;
 
-    setLoadingPrs(true);
     const baseWsUrl = API_BASE_URL.replace('/api', '');
     const socket = new SockJS(`${baseWsUrl}/ws`);
     const client = new Client({
@@ -429,11 +428,6 @@ export default function TaskDetailsPage() {
             setLoadingPrs(false);
           }
         });
-
-        client.publish({
-          destination: `/app/tasks/${taskId}/fetch-prs`,
-          body: JSON.stringify({})
-        });
       }
     });
 
@@ -466,12 +460,17 @@ export default function TaskDetailsPage() {
       headers: getAuthHeaders()
     }).then((res) => res.ok ? res.json() : []).catch(() => []);
 
-    Promise.all([fetchTaskPromise, fetchMetadataPromise, fetchCommentsPromise])
-      .then(([taskData, metaData, commentData]) => {
+    const fetchPrsPromise = fetch(`${API_BASE_URL}/api/github/prs/${taskId}`, {
+      headers: getAuthHeaders()
+    }).then((res) => res.ok ? res.json() : []).catch(() => []);
+
+    Promise.all([fetchTaskPromise, fetchMetadataPromise, fetchCommentsPromise, fetchPrsPromise])
+      .then(([taskData, metaData, commentData, prData]) => {
         setTask(taskData);
         setEditingValues(taskData); 
         if (metaData) setMetadata(metaData);
         setComments(commentData || []);
+        setPullRequests(prData || []);
         setLoading(false);
         setTimeout(() => {
           autoResizeTitle();
