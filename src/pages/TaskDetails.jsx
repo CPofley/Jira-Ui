@@ -183,6 +183,7 @@ export default function TaskDetailsPage() {
   const titleRef = useRef(null); 
   const userDropdownRef = useRef(null); 
   const inlineMenuRef = useRef(null);
+  const componentContainerRef = useRef(null);
   const stompClientRef = useRef(null);
 
   const [task, setTask] = useState(null);
@@ -192,6 +193,9 @@ export default function TaskDetailsPage() {
   const [lockedFields, setLockedFields] = useState({});
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingComponent, setIsEditingComponent] = useState(false);
+  const [taskComponent, setTaskComponent] = useState([]);
+  const [tempComponent, setTempComponent] = useState([]);
 
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -489,9 +493,18 @@ export default function TaskDetailsPage() {
                 ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
                 ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status }),
                 ...(fieldUpdates.priority && { priority: fieldUpdates.priority }),
-                ...(fieldUpdates.taskType && { taskType: fieldUpdates.taskType })
+                ...(fieldUpdates.taskType && { taskType: fieldUpdates.taskType }),
+                ...(fieldUpdates.component && { component: fieldUpdates.component })
               };
             });
+
+            if (fieldUpdates.component) {
+              let comps = fieldUpdates.component;
+              if (comps.includes('BOTH')) {
+                comps = ['UI', 'CORE'];
+              }
+              setTaskComponent(comps);
+            }
 
             setEditingValues(prev => ({
               ...prev,
@@ -499,7 +512,8 @@ export default function TaskDetailsPage() {
               ...(fieldUpdates.taskStatus && { taskStatus: fieldUpdates.taskStatus, status: fieldUpdates.taskStatus }),
               ...(fieldUpdates.status && { taskStatus: fieldUpdates.status, status: fieldUpdates.status }),
               ...(fieldUpdates.priority && { priority: fieldUpdates.priority }),
-              ...(fieldUpdates.taskType && { taskType: fieldUpdates.taskType })
+              ...(fieldUpdates.taskType && { taskType: fieldUpdates.taskType }),
+              ...(fieldUpdates.component && { component: fieldUpdates.component })
             }));
           } else if (payload.type === 'PR_FETCH_COMPLETE') {
             setPullRequests(payload.pullRequests || []);
@@ -546,6 +560,12 @@ export default function TaskDetailsPage() {
       .then(([taskData, metaData, commentData, prData]) => {
         setTask(taskData);
         setEditingValues(taskData); 
+        let comps = taskData.component || [];
+        if (comps.includes('BOTH')) {
+          comps = ['UI', 'CORE'];
+        }
+        setTaskComponent(comps);
+        setTempComponent(comps);
         if (metaData) setMetadata(metaData);
         setComments(commentData || []);
         setPullRequests(prData || []);
@@ -571,10 +591,14 @@ export default function TaskDetailsPage() {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
         setSearchSuggestions(null);
       }
+      if (componentContainerRef.current && !componentContainerRef.current.contains(event.target)) {
+        setIsEditingComponent(false);
+        setTempComponent([...taskComponent]);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [taskComponent]);
 
   const handleInputChange = (fieldName, value) => {
     setEditingValues(prev => ({ ...prev, [fieldName]: value }));
@@ -621,6 +645,51 @@ export default function TaskDetailsPage() {
       console.error(`Error saving ${fieldName}:`, error);
       showToast("Network exception error saving field changes.", "error");
       return false;
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handleSaveComponent = async () => {
+    const finalComponents = [...tempComponent];
+
+    setSavingField('component');
+    const payload = {
+      taskId: parseInt(taskId),
+      fields: { component: finalComponents },
+      emailId: userEmail
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        const updatedTask = await response.json();
+        setTask(updatedTask);
+        setEditingValues(updatedTask);
+        let updatedComps = updatedTask.component || finalComponents;
+        if (updatedComps.includes('BOTH')) {
+          updatedComps = ['UI', 'CORE'];
+        }
+        setTaskComponent(updatedComps);
+        setTempComponent(updatedComps);
+        setIsEditingComponent(false);
+        showToast("Component updated successfully!", "success");
+      } else {
+        showToast("Failed to update components.", "error");
+      }
+    } catch (error) {
+      console.error("Error updating component:", error);
+      showToast("Network exception updating component.", "error");
     } finally {
       setSavingField(null);
     }
@@ -1622,8 +1691,96 @@ export default function TaskDetailsPage() {
             </div>
           </div>
 
-          {/* SEQUENCE 3: CREATED DATE */}
-          <div>
+          {/* SEQUENCE 3: COMPONENT */}
+          <div className="border-t border-slate-700/60 pt-3" ref={componentContainerRef}>
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Component</span>
+            
+            <div 
+              onClick={() => {
+                if (!isEditingComponent) {
+                  setIsEditingComponent(true);
+                  setTempComponent([...taskComponent]);
+                }
+              }}
+              className={`group/comp relative rounded-md px-2 py-1.5 transition-all border ${
+                isEditingComponent 
+                  ? 'bg-slate-900 border-slate-700 shadow-sm' 
+                  : 'border-transparent hover:border-slate-700 hover:bg-slate-900/50 cursor-pointer'
+              }`}
+            >
+              {isEditingComponent ? (
+                <div className="space-y-2">
+                  <div className="flex gap-1.5 items-center">
+                    {['UI', 'CORE'].map(comp => {
+                      const isSelected = tempComponent.includes(comp);
+                      return (
+                        <button
+                          key={comp}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            let updated = [...tempComponent];
+                            if (updated.includes(comp)) {
+                              updated = updated.filter(c => c !== comp);
+                            } else {
+                              updated.push(comp);
+                            }
+                            setTempComponent(updated);
+                          }}
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all cursor-pointer ${
+                            isSelected 
+                              ? 'bg-blue-600 border-blue-500 text-white shadow-xs' 
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'
+                          }`}
+                        >
+                          {comp}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-end gap-1 pt-1 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEditingComponent(false);
+                        setTempComponent([...taskComponent]);
+                      }}
+                      className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition-colors cursor-pointer"
+                      title="Cancel"
+                    >
+                      <X size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSaveComponent();
+                      }}
+                      className="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors cursor-pointer shadow-xs"
+                      title="Confirm & Save"
+                    >
+                      <Check size={12} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs font-medium text-slate-300 flex items-center justify-between min-h-[24px]">
+                  <span>
+                    {taskComponent && taskComponent.length > 0 ? (
+                      taskComponent.join(', ')
+                    ) : (
+                      <span className="text-slate-500 italic">None specified</span>
+                    )}
+                  </span>
+                  <span className="text-[10px] text-slate-500 opacity-0 group-hover/comp:opacity-100 transition-opacity">Edit</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SEQUENCE 4: CREATED DATE */}
+          <div className="border-t border-slate-700/60 pt-3">
             <div className="flex justify-between items-center mb-1">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Created Date</label>
             </div>
@@ -1648,7 +1805,7 @@ export default function TaskDetailsPage() {
 
           <hr className="border-slate-700/60" />
 
-          {/* SEQUENCE 4: LINK ISSUE */}
+          {/* SEQUENCE 5: LINK ISSUE */}
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 text-left">
               Link Issue / Hierarchy
@@ -1679,7 +1836,7 @@ export default function TaskDetailsPage() {
 
           <hr className="border-slate-700/60" />
 
-          {/* SEQUENCE 5: DEVELOPMENT / GITHUB PULL REQUESTS */}
+          {/* SEQUENCE 6: DEVELOPMENT / GITHUB PULL REQUESTS */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
