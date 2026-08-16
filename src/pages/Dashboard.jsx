@@ -24,7 +24,10 @@ import {
   ChevronDown, 
   User, 
   Columns, 
-  Check
+  Check,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search
 } from 'lucide-react'; 
 
 const DEFAULT_WIDGETS = [
@@ -143,10 +146,20 @@ export default function JiraDashboard() {
   const [loading, setLoading] = useState(true);
   const [taskToDelete, setTaskToDelete] = useState(null);
   
+  // Default to collapsed mode
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  
   const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [syncingTaskId, setSyncingTaskId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Global search state for fetching task by ID with live suggestions
+  const [globalSearchId, setGlobalSearchId] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState(null);
+  const [searchingGlobal, setSearchingGlobal] = useState(false);
+  const searchTimeoutRef = useRef(null);
+  const searchContainerRef = useRef(null);
   
   const dashboardUserRef = useRef(null);
   const inlineMenuRef = useRef(null);
@@ -154,7 +167,7 @@ export default function JiraDashboard() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
-  // User selectable optional columns (id, title, status, actions are permanent)
+  // User selectable optional columns
   const [visibleOptionalCols, setVisibleOptionalCols] = useState(() => {
     const saved = localStorage.getItem('jira_table_visible_columns');
     if (saved) {
@@ -164,7 +177,7 @@ export default function JiraDashboard() {
         console.error(e);
       }
     }
-    return []; // By default no optional columns, showing id, title, status, actions
+    return []; 
   });
 
   const toggleOptionalColumn = (colKey) => {
@@ -295,6 +308,75 @@ export default function JiraDashboard() {
     }
   };
 
+  // Live AJAX lookup for task ID suggestions as user types
+  const handleGlobalSearchChange = (e) => {
+    const val = e.target.value;
+    setGlobalSearchId(val);
+
+    const cleanId = val.replace(/[^0-9]/g, '');
+    if (!cleanId) {
+      setSearchSuggestions(null);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${cleanId}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const taskObj = data.tasks || data;
+          setSearchSuggestions({ id: cleanId, title: taskObj.title });
+        } else {
+          setSearchSuggestions(null);
+        }
+      } catch (err) {
+        setSearchSuggestions(null);
+      }
+    }, 300);
+  };
+
+  // Global search by Task ID using query parameter endpoint
+  const handleGlobalSearchSubmit = async (e) => {
+    e.preventDefault();
+    if (!globalSearchId.trim()) return;
+
+    const cleanId = globalSearchId.replace(/[^0-9]/g, '');
+    if (!cleanId) {
+      alert("Please enter a valid numeric Task ID.");
+      return;
+    }
+
+    setSearchingGlobal(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${cleanId}`, {
+        headers: getAuthHeaders()
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        setSearchSuggestions(null);
+        navigate(`/tasks/details?taskId=${cleanId}`);
+      } else if (response.status === 404) {
+        alert(`Task ID ${cleanId} was not found.`);
+      } else {
+        alert("Failed to fetch task details.");
+      }
+    } catch (error) {
+      console.error("Error performing global search:", error);
+      alert("An error occurred while searching for the task.");
+    } finally {
+      setSearchingGlobal(false);
+    }
+  };
+
   const executeInlineFieldMutation = async (taskId, fieldFieldName, targetValue) => {
     setSyncingTaskId(taskId);
     setActiveInlineMenu(null); 
@@ -417,6 +499,9 @@ export default function JiraDashboard() {
       }
       if (inlineMenuRef.current && !inlineMenuRef.current.contains(event.target)) {
         setActiveInlineMenu(null);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setSearchSuggestions(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -588,12 +673,31 @@ export default function JiraDashboard() {
   return (
     <div className="flex h-screen w-screen bg-slate-900 font-sans text-slate-100 text-left overflow-hidden">
       {/* Sidebar Navigation */}
-      <div className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative shrink-0">
+      <div 
+        className={`bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative shrink-0 transition-all duration-300 ease-in-out z-40 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}
+      >
         
+        {/* Collapse / Expand Toggle Button (Hover triggers expansion) */}
+        <div 
+          onMouseEnter={() => setIsSidebarCollapsed(false)}
+          onMouseLeave={() => setIsSidebarCollapsed(true)}
+          className={`flex items-center mb-4 ${isSidebarCollapsed ? 'justify-center' : 'justify-end'}`}
+        >
+          <div
+            className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+            title={isSidebarCollapsed ? "Hover to expand sidebar" : "Collapse Sidebar"}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </div>
+        </div>
+
         <div 
           ref={dashboardUserRef}
-          onClick={() => setShowUserDropdown(!showUserDropdown)} 
-          className="flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-700 hover:bg-slate-700/50 hover:shadow-xs rounded-xl cursor-pointer transition-all group/header relative select-none"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowUserDropdown(!showUserDropdown);
+          }} 
+          className={`flex items-center gap-3 px-2 py-2.5 mb-4 border border-transparent hover:border-slate-700 hover:bg-slate-700/50 hover:shadow-xs rounded-xl cursor-pointer transition-all group/header relative select-none ${isSidebarCollapsed ? 'justify-center px-0' : ''}`}
           title="User Account Menu"
         >
           <div className="relative h-9 w-9 shrink-0">
@@ -616,19 +720,21 @@ export default function JiraDashboard() {
             <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-slate-800 z-20" />
           </div>
 
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="font-bold text-slate-200 text-xs leading-tight truncate capitalize">
-              {displayUserName}
-            </span>
-            <span className="text-[10px] font-medium text-slate-400 tracking-wide mt-0.5">
-              Account Summary &darr;
-            </span>
-          </div>
+          {!isSidebarCollapsed && (
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="font-bold text-slate-200 text-xs leading-tight truncate capitalize">
+                {displayUserName}
+              </span>
+              <span className="text-[10px] font-medium text-slate-400 tracking-wide mt-0.5">
+                Account Summary &darr;
+              </span>
+            </div>
+          )}
 
           {showUserDropdown && (
             <div 
               onClick={(e) => e.stopPropagation()} 
-              className="absolute left-2 top-13 w-56 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              className={`absolute top-16 bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150 ${isSidebarCollapsed ? 'left-16 w-56' : 'left-2 w-56'}`}
             >
               <div className="flex flex-col items-center text-center space-y-3">
                 <div className="h-12 w-14 max-w-[48px] rounded-full overflow-hidden border border-slate-700 shadow-xs bg-slate-900">
@@ -663,34 +769,91 @@ export default function JiraDashboard() {
           )}
         </div>
         
-        <button onClick={() => setIsCreateOpen(true)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded flex items-center justify-center gap-2 shadow-sm transition-all text-sm mb-3 cursor-pointer">
-          <Plus size={18} />
-          <span>Create Task</span>
+        {/* Create Task Button */}
+        <button 
+          onClick={() => setIsCreateOpen(true)} 
+          className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded flex items-center justify-center gap-2 shadow-sm transition-all text-sm mb-3 cursor-pointer ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}
+          title="Create Task"
+        >
+          <Plus size={18} className="shrink-0" />
+          {!isSidebarCollapsed && <span>Create Task</span>}
         </button>
 
-        <button onClick={() => setIsWidgetMenuOpen(true)} className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 px-4 rounded flex items-center justify-center gap-2 transition-all text-sm mb-2 cursor-pointer">
-          <LayoutGrid size={16} />
-          <span>Add Custom Widget</span>
+        <button 
+          onClick={() => setIsWidgetMenuOpen(true)} 
+          className={`w-full bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 rounded flex items-center justify-center gap-2 transition-all text-sm mb-2 cursor-pointer ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}
+          title="Add Custom Widget"
+        >
+          <LayoutGrid size={16} className="shrink-0" />
+          {!isSidebarCollapsed && <span>Add Custom Widget</span>}
         </button>
 
-        <a href="#all-issues-table" className="w-full mt-2 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors">
-          <ListTodo size={14} className="text-slate-400" />
-          <span>All Workspace Issues</span>
+        <a 
+          href="#all-issues-table" 
+          className={`w-full mt-2 text-slate-300 hover:bg-slate-700 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors ${isSidebarCollapsed ? 'justify-center px-0' : 'px-3'}`}
+          title="All Workspace Issues"
+        >
+          <ListTodo size={14} className="text-slate-400 shrink-0" />
+          {!isSidebarCollapsed && <span>All Workspace Issues</span>}
         </a>
 
         <div className="mt-auto border-t border-slate-700 pt-3">
-          <button onClick={handleLogout} className="w-full text-slate-400 hover:bg-slate-700 hover:text-red-400 px-3 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer">
-            <LogOut size={14} />
-            <span>Log Out</span>
+          <button 
+            onClick={handleLogout} 
+            className={`w-full text-slate-400 hover:bg-slate-700 hover:text-red-400 py-2 rounded text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${isSidebarCollapsed ? 'justify-center px-0' : 'px-3'}`}
+            title="Log Out"
+          >
+            <LogOut size={14} className="shrink-0" />
+            {!isSidebarCollapsed && <span>Log Out</span>}
           </button>
         </div>
       </div>
 
       {/* Main Board Area */}
       <div className="flex-1 min-w-0 p-6 md:p-8 overflow-y-auto space-y-12 bg-slate-900">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-100 mb-6">Custom Monitoring Workspace</h1>
+        
+        {/* Workspace Header with Global Task ID Search */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold text-slate-100">Custom Monitoring Workspace</h1>
           
+          {/* Global Search By Task ID with Live Suggestions */}
+          <div className="relative" ref={searchContainerRef}>
+            <form onSubmit={handleGlobalSearchSubmit} className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 shadow-xs">
+              <Search size={14} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search Task by ID (e.g., 56)..."
+                value={globalSearchId}
+                onChange={handleGlobalSearchChange}
+                className="bg-transparent text-xs text-slate-100 placeholder-slate-500 outline-none w-48 md:w-60"
+              />
+              <button 
+                type="submit" 
+                disabled={searchingGlobal || !globalSearchId.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium px-2.5 py-1 rounded transition-all cursor-pointer disabled:opacity-40"
+              >
+                {searchingGlobal ? 'Finding...' : 'Go'}
+              </button>
+            </form>
+
+            {searchSuggestions && (
+              <div 
+                onClick={() => {
+                  setSearchSuggestions(null);
+                  navigate(`/tasks/details?taskId=${searchSuggestions.id}`);
+                }}
+                className="absolute left-0 right-0 top-11 bg-slate-800 border border-slate-700 rounded-lg p-2.5 shadow-xl z-50 cursor-pointer hover:bg-slate-700/80 transition-all text-xs"
+              >
+                <div className="text-[10px] text-blue-400 font-mono font-bold mb-0.5">
+                  <span>TASK-{searchSuggestions.id}</span>
+                </div>
+                <p className="text-slate-200 font-medium truncate">{searchSuggestions.title}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div>
           {loading ? (
             <div className="text-slate-400 text-xs">Syncing active workspace blocks...</div>
           ) : (
@@ -938,7 +1101,8 @@ export default function JiraDashboard() {
                         <td className="py-3 px-3.5 font-semibold text-blue-400 group-hover:underline whitespace-nowrap">
                           TASK-{task.id}
                         </td>
-                        <td className="py-3 px-3.5 font-medium text-slate-100 max-w-xs truncate" title={task.title}>
+                        {/* Summary Title Cell with Text Wrapping Enabled */}
+                        <td className="py-3 px-3.5 font-medium text-slate-100 max-w-xs md:max-w-md lg:max-w-lg whitespace-normal break-words" title={task.title}>
                           {task.title}
                         </td>
 
