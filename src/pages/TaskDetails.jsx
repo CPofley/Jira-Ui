@@ -29,7 +29,8 @@ import {
   Lock,
   User,
   GitPullRequest,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react';
 
 const PRIORITY_CONFIG = {
@@ -203,6 +204,13 @@ export default function TaskDetailsPage() {
   const [linkSearchQuery, setLinkSearchQuery] = useState('');
   const [linkingTaskId, setLinkingTaskId] = useState('');
   const [isLinking, setIsLinking] = useState(false);
+
+  // Global search state with live suggestions and outside-click ref
+  const [globalSearchId, setGlobalSearchId] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState(null);
+  const [searchingGlobal, setSearchingGlobal] = useState(false);
+  const searchTimeoutRef = useRef(null);
+  const searchContainerRef = useRef(null);
 
   const [showSubTaskInput, setShowSubTaskInput] = useState(false);
   const [subTaskTitle, setSubTaskTitle] = useState('');
@@ -379,6 +387,76 @@ export default function TaskDetailsPage() {
     }
   };
 
+  // Live AJAX lookup for task ID suggestions as user types
+  const handleGlobalSearchChange = (e) => {
+    const val = e.target.value;
+    setGlobalSearchId(val);
+
+    const cleanId = val.replace(/[^0-9]/g, '');
+    if (!cleanId) {
+      setSearchSuggestions(null);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${cleanId}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const taskObj = data.tasks || data;
+          setSearchSuggestions({ id: cleanId, title: taskObj.title });
+        } else {
+          setSearchSuggestions(null);
+        }
+      } catch (err) {
+        setSearchSuggestions(null);
+      }
+    }, 300);
+  };
+
+  // Global search handler
+  const handleGlobalSearchSubmit = async (e) => {
+    e.preventDefault();
+    if (!globalSearchId.trim()) return;
+
+    const cleanId = globalSearchId.replace(/[^0-9]/g, '');
+    if (!cleanId) {
+      showToast("Please enter a valid numeric Task ID.", "error");
+      return;
+    }
+
+    setSearchingGlobal(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/get/created-task?taskId=${cleanId}`, {
+        headers: getAuthHeaders()
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        return;
+      }
+
+      if (response.ok) {
+        setGlobalSearchId('');
+        setSearchSuggestions(null);
+        navigate(`/tasks/details?taskId=${cleanId}`);
+      } else if (response.status === 404) {
+        showToast(`Task ID ${cleanId} was not found.`, "error");
+      } else {
+        showToast("Failed to fetch task details.", "error");
+      }
+    } catch (error) {
+      console.error("Error performing global search:", error);
+      showToast("An error occurred while searching for the task.", "error");
+    } finally {
+      setSearchingGlobal(false);
+    }
+  };
+
   useEffect(() => {
     if (!taskId) return;
 
@@ -489,6 +567,9 @@ export default function TaskDetailsPage() {
       }
       if (inlineMenuRef.current && !inlineMenuRef.current.contains(event.target)) {
         setActiveInlineMenu(null);
+      }
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setSearchSuggestions(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -875,6 +956,7 @@ export default function TaskDetailsPage() {
   if (!task) return <div className="p-8 text-red-400 text-left bg-slate-900 min-h-screen">Task details unavailable.</div>;
 
   const currentTaskType = (task.taskType || 'TASK').toUpperCase();
+  const currentProjectId = task?.projectId || task?.project?.id || 1;
 
   return (
     <div className="min-h-screen w-full bg-slate-900 font-sans text-sm text-slate-100 text-left mb-12 relative">
@@ -888,7 +970,10 @@ export default function TaskDetailsPage() {
           
           <ChevronRight size={14} className="text-slate-600 flex-shrink-0" />
           
-          <button onClick={() => navigate(-1)} className="hover:text-blue-400 hover:underline transition-colors cursor-pointer">
+          <button 
+            onClick={() => navigate(`/dashboard/${currentProjectId}`)} 
+            className="hover:text-blue-400 hover:underline transition-colors cursor-pointer"
+          >
             Core Engine
           </button>
           
@@ -917,8 +1002,46 @@ export default function TaskDetailsPage() {
           </span>
         </div>
 
-        {/* Profile Avatar Header */}
-        <div className="flex items-center gap-3">
+        {/* Header Right Section: Global Task Search & Profile Avatar */}
+        <div className="flex items-center gap-4">
+          
+          {/* Global Search By Task ID with Live Suggestions */}
+          <div className="relative" ref={searchContainerRef}>
+            <form onSubmit={handleGlobalSearchSubmit} className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 shadow-xs">
+              <Search size={12} className="text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search ID (e.g. 14)..."
+                value={globalSearchId}
+                onChange={handleGlobalSearchChange}
+                className="bg-transparent text-xs text-slate-100 placeholder-slate-500 outline-none w-20 md:w-28"
+              />
+              <button 
+                type="submit" 
+                disabled={searchingGlobal || !globalSearchId.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-medium px-2 py-0.5 rounded transition-all cursor-pointer disabled:opacity-40"
+              >
+                {searchingGlobal ? '...' : 'Go'}
+              </button>
+            </form>
+
+            {searchSuggestions && (
+              <div 
+                onClick={() => {
+                  setSearchSuggestions(null);
+                  navigate(`/tasks/details?taskId=${searchSuggestions.id}`);
+                }}
+                className="absolute right-0 top-10 w-56 bg-slate-800 border border-slate-700 rounded-lg p-2.5 shadow-xl z-50 cursor-pointer hover:bg-slate-700/80 transition-all text-xs"
+              >
+                <div className="text-[10px] text-blue-400 font-mono font-bold mb-0.5">
+                  <span>TASK-{searchSuggestions.id}</span>
+                </div>
+                <p className="text-slate-200 font-medium truncate">{searchSuggestions.title}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Avatar Header */}
           <div className="flex items-center gap-2.5 border-l border-slate-700 pl-4 h-7 relative" ref={userDropdownRef}>
             <span className="font-semibold text-slate-200 text-xs truncate max-w-[120px] capitalize">
               {displayUserName}
@@ -1002,16 +1125,16 @@ export default function TaskDetailsPage() {
                 value={editingValues.title || ''}
                 onInput={autoResizeTitle}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                className={`text-2xl font-semibold leading-tight w-full border rounded px-2 py-1 outline-none transition-all resize-none overflow-hidden h-auto ${
+                className={`text-base font-medium leading-normal w-full border rounded px-2.5 py-1.5 outline-none transition-all resize-none overflow-hidden h-auto ${
                   lockedFields.title 
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed border-slate-700 opacity-70' 
-                    : 'bg-transparent border-transparent hover:border-slate-700 focus:border-blue-400 text-slate-100 focus:bg-slate-800'
+                    : 'bg-slate-800/40 border-slate-700/80 hover:border-slate-600 focus:border-blue-400 text-slate-100 focus:bg-slate-800'
                 }`}
               />
               {editingValues.title !== task.title && !lockedFields.title && (
                 <div className="flex gap-1 pt-1">
-                  <button onClick={() => commitFieldUpdate('title')} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer"><Check size={16} /></button>
-                  <button onClick={() => cancelFieldUpdate('title')} className="p-1 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 cursor-pointer"><X size={16} /></button>
+                  <button onClick={() => commitFieldUpdate('title')} className="p-1.5 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer shadow-xs"><Check size={14} /></button>
+                  <button onClick={() => cancelFieldUpdate('title')} className="p-1.5 bg-slate-700 text-slate-300 rounded hover:bg-slate-600 cursor-pointer shadow-xs"><X size={14} /></button>
                 </div>
               )}
             </div>
