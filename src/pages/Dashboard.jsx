@@ -236,7 +236,8 @@ export default function JiraDashboard() {
 
   const [formData, setFormData] = useState({
     title: '', description: '', taskType: 'STORY', assignee: '',
-    taskStatus: 'TO_DO', priority: 'MEDIUM', reporter: ''
+    taskStatus: 'TO_DO', priority: 'MEDIUM', reporter: '',
+    component: [] 
   });
 
   const PAGE_SIZE = 10;
@@ -602,11 +603,28 @@ export default function JiraDashboard() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleComponentToggle = (compValue) => {
+    setFormData(prev => {
+      const current = prev.component || [];
+      const exists = current.includes(compValue);
+      const updated = exists 
+        ? current.filter(c => c !== compValue) 
+        : [...current, compValue];
+      return { ...prev, component: updated };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      let finalComponents = [...(formData.component || [])];
+      if (finalComponents.includes('UI') && finalComponents.includes('CORE')) {
+        finalComponents = ['BOTH'];
+      }
+
       const payload = {
         ...formData,
+        component: finalComponents,
         projectId: parseInt(projectId) 
       };
 
@@ -1338,6 +1356,34 @@ export default function JiraDashboard() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Description</label>
                 <textarea rows="4" name="description" value={formData.description} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs resize-none outline-none" />
               </div>
+
+              {/* Component Multi-Select Field */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Components
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {['UI', 'CORE'].map(comp => {
+                    const isSelected = formData.component.includes(comp);
+                    return (
+                      <button
+                        key={comp}
+                        type="button"
+                        onClick={() => handleComponentToggle(comp)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected 
+                            ? 'bg-blue-600 border-blue-500 text-white shadow-xs' 
+                            : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <span>{comp}</span>
+                        {isSelected && <Check size={12} strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Priority</label>
