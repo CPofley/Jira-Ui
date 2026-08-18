@@ -1,8 +1,10 @@
 name: Deploy to EC2
+
 on: 
   push:
     branches:
       - main
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -11,9 +13,9 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 43.204.130.37.nip.io
+          host: 13.200.43.90
           username: ec2-user
-          key: ${{secrets.EC2_SSH_KEY}}
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # Pull latest changes and build
             cd /home/ec2-user/node-app
@@ -21,10 +23,7 @@ jobs:
             npm install
             npm run build
             
-            # Restart or Start Application via PM2 using serve
-            if pm2 describe jira-ui > /dev/null 2>&1; then
-              pm2 restart jira-ui
-            else
-              pm2 start npx --name "jira-ui" -- serve -s dist -l 3000
-            fi
+            # Clear old PM2 process to free up memory and start fresh
+            pm2 delete jira-ui || true
+            pm2 start npx --name "jira-ui" -- serve -s dist -l 3000
             pm2 save
