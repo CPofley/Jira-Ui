@@ -146,19 +146,26 @@ export default function JiraDashboard() {
   const [loading, setLoading] = useState(true);
   const [taskToDelete, setTaskToDelete] = useState(null);
   
-  // Default to collapsed mode
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   
   const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [syncingTaskId, setSyncingTaskId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   
+  // Widget table search & pagination state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allTasks, setAllTasks] = useState([]);
+  const [allTasksPage, setAllTasksPage] = useState(0);
+  const [allTasksSize] = useState(20);
+  const [hasMoreTableData, setHasMoreTableData] = useState(false);
+  const [loadingTable, setLoadingTable] = useState(true);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const searchTimeoutRef = useRef(null);
+
   // Global search state for fetching task by ID with live suggestions
   const [globalSearchId, setGlobalSearchId] = useState('');
   const [searchSuggestions, setSearchSuggestions] = useState(null);
   const [searchingGlobal, setSearchingGlobal] = useState(false);
-  const searchTimeoutRef = useRef(null);
   const searchContainerRef = useRef(null);
   
   const dashboardUserRef = useRef(null);
@@ -167,7 +174,6 @@ export default function JiraDashboard() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
-  // User selectable optional columns
   const [visibleOptionalCols, setVisibleOptionalCols] = useState(() => {
     const saved = localStorage.getItem('jira_table_visible_columns');
     if (saved) {
@@ -208,12 +214,6 @@ export default function JiraDashboard() {
       'Content-Type': 'application/json'
     };
   };
-
-  const [allTasks, setAllTasks] = useState([]);
-  const [allTasksPage, setAllTasksPage] = useState(0);
-  const [allTasksSize] = useState(20);
-  const [loadingTable, setLoadingTable] = useState(true);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   const [activeWidgets, setActiveWidgets] = useState(() => {
     const savedLayout = localStorage.getItem('jira_dashboard_layout');
@@ -284,12 +284,33 @@ export default function JiraDashboard() {
     }
   };
 
-  const fetchAllTasksTableData = async () => {
+  // Conditional fetch: Uses GET /project/{projectId} when search box is empty, and POST /query when keyword exists
+  const fetchAllTasksTableData = async (keywordOverride = searchQuery, pageOverride = allTasksPage) => {
     setLoadingTable(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tasks/project/${projectId}?page=${allTasksPage}&size=${allTasksSize}`, {
-        headers: getAuthHeaders() 
-      });
+      let response;
+      const cleanKeyword = (keywordOverride || "").trim();
+
+      if (!cleanKeyword) {
+        // Default standard project pagination endpoint
+        response = await fetch(`${API_BASE_URL}/api/tasks/project/${projectId}?page=${pageOverride}&size=${allTasksSize}`, {
+          headers: getAuthHeaders()
+        });
+      } else {
+        // Keyword search endpoint when user types something
+        const payload = {
+          projectId: parseInt(projectId),
+          keyword: cleanKeyword,
+          page: pageOverride,
+          size: allTasksSize
+        };
+
+        response = await fetch(`${API_BASE_URL}/api/tasks/query`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+      }
       
       if (response.status === 401) {
         handleLogout();
@@ -298,16 +319,46 @@ export default function JiraDashboard() {
 
       if (response.status === 204) {
         setAllTasks([]);
+        setHasMoreTableData(false);
       } else if (response.ok) {
         const data = await response.json();
-        setAllTasks(data);
+        const items = data.content || data.tasks || data;
+        setAllTasks(Array.isArray(items) ? items : []);
+        setHasMoreTableData(data.totalPages ? pageOverride + 1 < data.totalPages : items.length === allTasksSize);
+      } else {
+        setAllTasks([]);
+        setHasMoreTableData(false);
       }
     } catch (error) {
       console.error("Error loading table data pipeline:", error);
+      setAllTasks([]);
     } finally {
       setLoadingTable(false);
     }
   };
+
+  // Debounced effect for handling search input changes
+  useEffect(() => {
+    if (!projectId) return;
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(() => {
+      setAllTasksPage(0); // Reset pagination index on search update
+      fetchAllTasksTableData(searchQuery, 0);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery]);
+
+  // Effect for triggering data load on page navigation changes
+  useEffect(() => {
+    if (projectId) {
+      fetchAllTasksTableData(searchQuery, allTasksPage);
+    }
+  }, [allTasksPage, allTasksSize, projectId]);
 
   // Live AJAX lookup for task ID suggestions as user types
   const handleGlobalSearchChange = (e) => {
@@ -340,7 +391,6 @@ export default function JiraDashboard() {
     }, 300);
   };
 
-  // Global search by Task ID using query parameter endpoint
   const handleGlobalSearchSubmit = async (e) => {
     e.preventDefault();
     if (!globalSearchId.trim()) return;
@@ -485,12 +535,6 @@ export default function JiraDashboard() {
   }, [projectId]);
 
   useEffect(() => {
-    if (projectId) {
-      fetchAllTasksTableData();
-    }
-  }, [allTasksPage, allTasksSize, projectId]);
-
-  useEffect(() => {
     function handleClickOutside(event) {
       if (dashboardUserRef.current && !dashboardUserRef.current.contains(event.target)) {
         setShowUserDropdown(false);
@@ -532,26 +576,8 @@ export default function JiraDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const filteredTasks = useMemo(() => {
-    if (!allTasks) return [];
-    if (!searchQuery.trim()) return allTasks;
-
-    const query = searchQuery.toLowerCase().trim();
-    return allTasks.filter(task => {
-      const idMatch = String(task.id).includes(query);
-      const titleMatch = (task.title || '').toLowerCase().includes(query);
-      const typeMatch = (task.taskType || '').toLowerCase().includes(query);
-      const statusMatch = (task.taskStatus || '').toLowerCase().replace('_', ' ').includes(query);
-      const priorityMatch = (task.priority || '').toLowerCase().includes(query);
-      const assigneeMatch = (task.assignee || '').toLowerCase().includes(query);
-      const reporterMatch = (task.reporter || '').toLowerCase().includes(query);
-
-      return idMatch || titleMatch || typeMatch || statusMatch || priorityMatch || assigneeMatch || reporterMatch;
-    });
-  }, [allTasks, searchQuery]);
-
   const sortedTasks = useMemo(() => {
-    let sortableTasks = [...filteredTasks];
+    let sortableTasks = [...allTasks];
     if (sortConfig.key !== null) {
       sortableTasks.sort((a, b) => {
         let aValue = a[sortConfig.key];
@@ -566,7 +592,7 @@ export default function JiraDashboard() {
       });
     }
     return sortableTasks;
-  }, [filteredTasks, sortConfig]);
+  }, [allTasks, sortConfig]);
 
   const renderSortIcon = (columnKey) => {
     if (sortConfig.key !== columnKey) return <ArrowUpDown size={12} className="text-slate-600 ml-1 inline-block" />;
@@ -694,8 +720,6 @@ export default function JiraDashboard() {
       <div 
         className={`bg-slate-800 border-r border-slate-700 flex flex-col p-4 shadow-sm relative shrink-0 transition-all duration-300 ease-in-out z-40 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}
       >
-        
-        {/* Collapse / Expand Toggle Button (Hover triggers expansion) */}
         <div 
           onMouseEnter={() => setIsSidebarCollapsed(false)}
           onMouseLeave={() => setIsSidebarCollapsed(true)}
@@ -787,7 +811,6 @@ export default function JiraDashboard() {
           )}
         </div>
         
-        {/* Create Task Button */}
         <button 
           onClick={() => setIsCreateOpen(true)} 
           className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded flex items-center justify-center gap-2 shadow-sm transition-all text-sm mb-3 cursor-pointer ${isSidebarCollapsed ? 'px-2' : 'px-4'}`}
@@ -830,11 +853,9 @@ export default function JiraDashboard() {
       {/* Main Board Area */}
       <div className="flex-1 min-w-0 p-6 md:p-8 overflow-y-auto space-y-12 bg-slate-900">
         
-        {/* Workspace Header with Global Task ID Search */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold text-slate-100">Custom Monitoring Workspace</h1>
           
-          {/* Global Search By Task ID with Live Suggestions */}
           <div className="relative" ref={searchContainerRef}>
             <form onSubmit={handleGlobalSearchSubmit} className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 shadow-xs">
               <Search size={14} className="text-slate-400 shrink-0" />
@@ -955,14 +976,14 @@ export default function JiraDashboard() {
           )}
         </div>
 
-        {/* CORE SECTION 2: PAGINATED TRACKING REGISTRY TABLE */}
+        {/* CORE SECTION 2: CONDITIONAL SEARCH & PAGINATED TABLE */}
         <div id="all-issues-table" className="w-full bg-slate-800 rounded-xl border border-slate-700 shadow-sm font-sans text-xs text-slate-200 pt-1 relative min-h-[500px] overflow-hidden">
           <div className="p-4 border-b border-slate-700 bg-slate-800/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <ListTodo size={16} className="text-blue-400" />
               <h3 className="font-bold text-slate-100 text-sm tracking-wide">All Workspace Issues</h3>
               <button 
-                onClick={fetchAllTasksTableData}
+                onClick={() => fetchAllTasksTableData(searchQuery, allTasksPage)}
                 disabled={loadingTable}
                 className="ml-2 p-1 text-slate-400 hover:text-blue-400 bg-slate-900 border border-slate-700 hover:border-blue-500 shadow-sm rounded transition-all cursor-pointer disabled:opacity-50"
                 title="Refresh Table Data"
@@ -971,12 +992,12 @@ export default function JiraDashboard() {
               </button>
             </div>
 
-            {/* REAL-TIME SEARCH BAR & COLUMN PICKER */}
+            {/* SEARCH INPUT & COLUMN PICKER */}
             <div className="flex items-center gap-2 flex-1 justify-end">
               <div className="relative flex-1 max-w-xs min-w-[160px]">
                 <input
                   type="text"
-                  placeholder="Search tasks by ID, title..."
+                  placeholder="Search tasks or query..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-blue-500 transition-all"
@@ -992,7 +1013,6 @@ export default function JiraDashboard() {
                 )}
               </div>
 
-              {/* COLUMN CHOOSER DROPDOWN */}
               <div className="relative" ref={columnMenuRef}>
                 <button
                   type="button"
@@ -1048,7 +1068,7 @@ export default function JiraDashboard() {
               </button>
               <span className="font-semibold text-slate-300 px-1">Page {allTasksPage + 1}</span>
               <button 
-                disabled={allTasks.length < allTasksSize} 
+                disabled={!hasMoreTableData} 
                 onClick={() => setAllTasksPage(p => p + 1)}
                 className="p-1.5 border border-slate-700 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 transition-colors cursor-pointer text-slate-300"
               >
@@ -1059,7 +1079,7 @@ export default function JiraDashboard() {
 
           <div className="overflow-x-auto w-full">
             {loadingTable ? (
-              <div className="p-12 text-slate-400 italic text-center">Refreshing workspace data index...</div>
+              <div className="p-12 text-slate-400 italic text-center">Loading workspace records...</div>
             ) : (
               <table className="w-full text-left border-collapse table-auto">
                 <thead>
@@ -1071,40 +1091,34 @@ export default function JiraDashboard() {
                       <div className="flex items-center">Summary Title {renderSortIcon('title')}</div>
                     </th>
 
-                    {/* OPTIONAL TYPE COLUMN */}
                     {isColVisible('taskType') && (
                       <th onClick={() => handleSort('taskType')} className="py-3 px-3.5 w-28 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                         <div className="flex items-center">Type {renderSortIcon('taskType')}</div>
                       </th>
                     )}
 
-                    {/* DEFAULT STATUS COLUMN */}
                     <th onClick={() => handleSort('taskStatus')} className="py-3 px-3.5 w-32 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                       <div className="flex items-center">Status {renderSortIcon('taskStatus')}</div>
                     </th>
 
-                    {/* OPTIONAL PRIORITY COLUMN */}
                     {isColVisible('priority') && (
                       <th onClick={() => handleSort('priority')} className="py-3 px-3.5 w-28 cursor-pointer hover:bg-slate-700 transition-colors select-none">
                         <div className="flex items-center">Priority {renderSortIcon('priority')}</div>
                       </th>
                     )}
 
-                    {/* OPTIONAL ASSIGNEE COLUMN */}
                     {isColVisible('assignee') && (
                       <th onClick={() => handleSort('assignee')} className="py-3 px-3.5 min-w-[130px] cursor-pointer hover:bg-slate-700 transition-colors select-none">
                         <div className="flex items-center">Assignee {renderSortIcon('assignee')}</div>
                       </th>
                     )}
 
-                    {/* OPTIONAL REPORTER COLUMN */}
                     {isColVisible('reporter') && (
                       <th onClick={() => handleSort('reporter')} className="py-3 px-3.5 min-w-[130px] cursor-pointer hover:bg-slate-700 transition-colors select-none">
                         <div className="flex items-center">Reporter {renderSortIcon('reporter')}</div>
                       </th>
                     )}
 
-                    {/* DEFAULT ACTIONS COLUMN */}
                     <th className="py-3 px-3.5 w-16 text-center select-none">Actions</th>
                   </tr>
                 </thead>
@@ -1119,12 +1133,10 @@ export default function JiraDashboard() {
                         <td className="py-3 px-3.5 font-semibold text-blue-400 group-hover:underline whitespace-nowrap">
                           TASK-{task.id}
                         </td>
-                        {/* Summary Title Cell with Text Wrapping Enabled */}
                         <td className="py-3 px-3.5 font-medium text-slate-100 max-w-xs md:max-w-md lg:max-w-lg whitespace-normal break-words" title={task.title}>
                           {task.title}
                         </td>
 
-                        {/* TYPE CELL */}
                         {isColVisible('taskType') && (
                           <td className="py-2.5 px-3.5 whitespace-nowrap">
                             {syncingTaskId === task.id ? (
@@ -1142,7 +1154,6 @@ export default function JiraDashboard() {
                           </td>
                         )}
                         
-                        {/* STATUS CELL */}
                         <td className="py-2.5 px-3.5 whitespace-nowrap">
                           {syncingTaskId === task.id ? (
                             <span className="text-[10px] text-slate-400 animate-pulse">Saving...</span>
@@ -1157,7 +1168,6 @@ export default function JiraDashboard() {
                           )}
                         </td>
 
-                        {/* PRIORITY CELL */}
                         {isColVisible('priority') && (
                           <td className="py-2.5 px-3.5 whitespace-nowrap">
                             {syncingTaskId === task.id ? (
@@ -1174,21 +1184,18 @@ export default function JiraDashboard() {
                           </td>
                         )}
 
-                        {/* ASSIGNEE CELL */}
                         {isColVisible('assignee') && (
                           <td className="py-3 px-3.5 text-slate-300 font-medium whitespace-nowrap">
                             <UserAvatar rawString={task.assignee} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                           </td>
                         )}
 
-                        {/* REPORTER CELL */}
                         {isColVisible('reporter') && (
                           <td className="py-3 px-3.5 text-slate-300 font-medium whitespace-nowrap">
                             <UserAvatar rawString={task.reporter} fallbackAvatarUrl={avatarUrl} size="w-5 h-5" />
                           </td>
                         )}
 
-                        {/* ACTIONS CELL */}
                         <td className="py-3 px-3.5 text-center whitespace-nowrap">
                           <button
                             type="button"
@@ -1357,7 +1364,6 @@ export default function JiraDashboard() {
                 <textarea rows="4" name="description" value={formData.description} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded p-2 text-xs resize-none outline-none" />
               </div>
 
-              {/* Component Multi-Select Field */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Components
