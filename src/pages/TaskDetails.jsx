@@ -616,7 +616,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -661,7 +661,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -734,7 +734,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${taskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -773,7 +773,7 @@ export default function TaskDetailsPage() {
     };
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/tasks/update/${subTaskId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/update`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
