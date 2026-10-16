@@ -30,7 +30,8 @@ import {
   User,
   GitPullRequest,
   RefreshCw,
-  Search
+  Search,
+  ExternalLink
 } from 'lucide-react';
 
 const PRIORITY_CONFIG = {
@@ -222,6 +223,9 @@ export default function TaskDetailsPage() {
 
   const [pullRequests, setPullRequests] = useState([]);
   const [loadingPrs, setLoadingPrs] = useState(false);
+
+  // Development & PR Modal state
+  const [showDevelopmentModal, setShowDevelopmentModal] = useState(false);
 
   const [activeInlineMenu, setActiveInlineMenu] = useState(null); 
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
@@ -1839,7 +1843,11 @@ export default function TaskDetailsPage() {
           {/* SEQUENCE 6: DEVELOPMENT / GITHUB PULL REQUESTS */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <label 
+                onClick={() => setShowDevelopmentModal(true)}
+                className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 cursor-pointer hover:text-blue-400 transition-colors"
+                title="Click to view Development PRs"
+              >
                 <GitPullRequest size={13} className="text-slate-400" />
                 <span>Development</span>
               </label>
@@ -1858,7 +1866,10 @@ export default function TaskDetailsPage() {
             </div>
 
             {pullRequests && pullRequests.length > 0 ? (
-              <div className="space-y-3">
+              <div 
+                onClick={() => setShowDevelopmentModal(true)}
+                className="space-y-3 cursor-pointer group/dev bg-slate-900/40 p-2.5 rounded-lg border border-slate-700/60 hover:border-blue-500 transition-all"
+              >
                 {/* 1. Core / Backend Section */}
                 {(() => {
                   const corePrs = pullRequests.filter(pr => (pr.title || '').toLowerCase().includes('jira-core') || !(pr.title || '').toLowerCase().includes('jira-ui'));
@@ -1870,17 +1881,20 @@ export default function TaskDetailsPage() {
                         const isMerged = pr.isMerged;
                         const isOpen = pr.state === 'open';
                         return (
-                          <a key={pr.id} href={pr.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 rounded-lg border border-slate-700 hover:border-blue-500 bg-slate-900/40 hover:bg-slate-900 transition-all text-xs group cursor-pointer shadow-2xs">
+                          <div 
+                            key={pr.id || pr.number}
+                            className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-700 bg-slate-900/60 text-xs shadow-2xs text-left"
+                          >
                             <div className="flex items-center gap-2 min-w-0 pr-1">
                               <GitPullRequest size={14} className={isMerged ? 'text-purple-400 flex-shrink-0' : isOpen ? 'text-green-400 flex-shrink-0' : 'text-red-500 flex-shrink-0'} />
                               <div className="truncate">
-                                <p className="font-bold text-slate-200 group-hover:text-blue-400 truncate text-[11px]">#{pr.number}: {pr.title}</p>
+                                <p className="font-bold text-slate-200 truncate text-[11px]">#{pr.number}: {pr.title}</p>
                               </div>
                             </div>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border flex-shrink-0 ${isMerged ? 'bg-purple-950/50 text-purple-300 border-purple-800' : isOpen ? 'bg-green-950/50 text-green-300 border-green-800' : 'bg-red-950/50 text-red-300 border-red-800'}`}>
                               {isMerged ? 'MERGED' : isOpen ? 'OPEN' : 'CLOSED'}
                             </span>
-                          </a>
+                          </div>
                         );
                       })}
                     </div>
@@ -1898,17 +1912,20 @@ export default function TaskDetailsPage() {
                         const isMerged = pr.isMerged;
                         const isOpen = pr.state === 'open';
                         return (
-                          <a key={pr.id} href={pr.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2 rounded-lg border border-slate-700 hover:border-blue-500 bg-slate-900/40 hover:bg-slate-900 transition-all text-xs group cursor-pointer shadow-2xs">
+                          <div 
+                            key={pr.id || pr.number}
+                            className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-700 bg-slate-900/60 text-xs shadow-2xs text-left"
+                          >
                             <div className="flex items-center gap-2 min-w-0 pr-1">
                               <GitPullRequest size={14} className={isMerged ? 'text-purple-400 flex-shrink-0' : isOpen ? 'text-green-400 flex-shrink-0' : 'text-red-500 flex-shrink-0'} />
                               <div className="truncate">
-                                <p className="font-bold text-slate-200 group-hover:text-blue-400 truncate text-[11px]">#{pr.number}: {pr.title}</p>
+                                <p className="font-bold text-slate-200 truncate text-[11px]">#{pr.number}: {pr.title}</p>
                               </div>
                             </div>
                             <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border flex-shrink-0 ${isMerged ? 'bg-purple-950/50 text-purple-300 border-purple-800' : isOpen ? 'bg-green-950/50 text-green-300 border-green-800' : 'bg-red-950/50 text-red-300 border-red-800'}`}>
                               {isMerged ? 'MERGED' : isOpen ? 'OPEN' : 'CLOSED'}
                             </span>
-                          </a>
+                          </div>
                         );
                       })}
                     </div>
@@ -1924,6 +1941,155 @@ export default function TaskDetailsPage() {
 
         </div>
       </div>
+
+      {/* Development Details Modal (Core & UI Breakdown) */}
+      {showDevelopmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full max-w-2xl p-6 text-left transform scale-100 transition-all space-y-5 max-h-[85vh] overflow-y-auto">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-950/50 rounded-lg text-blue-400 flex-shrink-0 border border-blue-800/60">
+                  <GitPullRequest size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100">Development Activity — TASK-{taskId}</h3>
+                  <p className="text-[11px] text-slate-400">Core & UI Pull Requests Overview</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowDevelopmentModal(false)}
+                className="text-slate-400 hover:text-slate-100 p-1 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content Sections */}
+            <div className="space-y-6">
+              
+              {/* CORE PRS */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-extrabold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>Core (Jira-Core)</span>
+                  <span className="bg-slate-900 px-2 py-0.5 rounded text-[10px] text-slate-400 border border-slate-700">
+                    {pullRequests.filter(pr => (pr.title || '').toLowerCase().includes('jira-core') || !(pr.title || '').toLowerCase().includes('jira-ui')).length}
+                  </span>
+                </h4>
+                
+                <div className="space-y-2">
+                  {pullRequests.filter(pr => (pr.title || '').toLowerCase().includes('jira-core') || !(pr.title || '').toLowerCase().includes('jira-ui')).length > 0 ? (
+                    pullRequests
+                      .filter(pr => (pr.title || '').toLowerCase().includes('jira-core') || !(pr.title || '').toLowerCase().includes('jira-ui'))
+                      .map(pr => (
+                        <div key={pr.id || pr.number} className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2 hover:border-slate-600 transition-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <a 
+                              href={pr.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="font-bold text-slate-100 hover:text-blue-400 text-xs flex items-center gap-1.5 transition-colors"
+                            >
+                              <span>#{pr.number}: {pr.title}</span>
+                              <ExternalLink size={12} className="shrink-0" />
+                            </a>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${
+                              pr.isMerged ? 'bg-purple-950/50 text-purple-300 border-purple-800' : 
+                              pr.state === 'open' ? 'bg-green-950/50 text-green-300 border-green-800' : 
+                              'bg-red-950/50 text-red-300 border-red-800'
+                            }`}>
+                              {pr.isMerged ? 'MERGED' : pr.state || 'OPEN'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                            <div className="flex items-center gap-1.5">
+                              {pr.authorAvatar ? (
+                                <img src={pr.authorAvatar} alt={pr.createdBy} className="w-4 h-4 rounded-full object-cover" />
+                              ) : (
+                                <User size={12} />
+                              )}
+                              <span>Created by: <strong className="text-slate-300">{pr.createdBy || 'System'}</strong></span>
+                            </div>
+                            <span>Updated: {pr.updatedAt ? new Date(pr.updatedAt).toLocaleString() : 'Recently'}</span>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-xs text-slate-500 italic bg-slate-900/30 p-2.5 rounded border border-slate-800">No Core pull requests found.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* UI PRS */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-extrabold text-teal-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>UI (Jira-Ui)</span>
+                  <span className="bg-slate-900 px-2 py-0.5 rounded text-[10px] text-slate-400 border border-slate-700">
+                    {pullRequests.filter(pr => (pr.title || '').toLowerCase().includes('jira-ui')).length}
+                  </span>
+                </h4>
+                
+                <div className="space-y-2">
+                  {pullRequests.filter(pr => (pr.title || '').toLowerCase().includes('jira-ui')).length > 0 ? (
+                    pullRequests
+                      .filter(pr => (pr.title || '').toLowerCase().includes('jira-ui'))
+                      .map(pr => (
+                        <div key={pr.id || pr.number} className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2 hover:border-slate-600 transition-all">
+                          <div className="flex items-start justify-between gap-2">
+                            <a 
+                              href={pr.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="font-bold text-slate-100 hover:text-blue-400 text-xs flex items-center gap-1.5 transition-colors"
+                            >
+                              <span>#{pr.number}: {pr.title}</span>
+                              <ExternalLink size={12} className="shrink-0" />
+                            </a>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${
+                              pr.isMerged ? 'bg-purple-950/50 text-purple-300 border-purple-800' : 
+                              pr.state === 'open' ? 'bg-green-950/50 text-green-300 border-green-800' : 
+                              'bg-red-950/50 text-red-300 border-red-800'
+                            }`}>
+                              {pr.isMerged ? 'MERGED' : pr.state || 'OPEN'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                            <div className="flex items-center gap-1.5">
+                              {pr.authorAvatar ? (
+                                <img src={pr.authorAvatar} alt={pr.createdBy} className="w-4 h-4 rounded-full object-cover" />
+                              ) : (
+                                <User size={12} />
+                              )}
+                              <span>Created by: <strong className="text-slate-300">{pr.createdBy || 'System'}</strong></span>
+                            </div>
+                            <span>Updated: {pr.updatedAt ? new Date(pr.updatedAt).toLocaleString() : 'Recently'}</span>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-xs text-slate-500 italic bg-slate-900/30 p-2.5 rounded border border-slate-800">No UI pull requests found.</p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+            
+            <div className="flex items-center justify-end pt-3 border-t border-slate-700">
+              <button 
+                type="button"
+                onClick={() => setShowDevelopmentModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-lg cursor-pointer shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Popover Dropdown Menu */}
       {activeInlineMenu && (
